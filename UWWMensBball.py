@@ -21,6 +21,7 @@ df = pd.read_csv("https://github.com/fritschcm272/Auger_BBALL/blob/master/warhaw
 
 players_list = list(df['UWW_LINEUP'].str.split(';',expand=True).stack().reset_index()[0].drop_duplicates().sort_values())
 
+df['UWW_LINEUP'] = df['UWW_LINEUP'].replace(';','<br>', regex=True)
 
 
 
@@ -31,7 +32,8 @@ players = st.multiselect(
 if not players:
     # st.error("Please select at least one Player.")
     data = df
-    st.write("### 5 Man Lineups", data.sort_index())
+    st.write("### 5 Man Lineups")
+    st.markdown(data.to_html(escape=False), unsafe_allow_html=True)
 else:
     if len(players)==1:
         data = df[(df['UWW_LINEUP'].str.contains(players[0]))]# & (df['UWW_LINEUP'].str.contains('BARNSTABLE,MILES'))]
@@ -46,7 +48,8 @@ else:
     if len(players)>=6:
         st.error("Please only select up to five players.")
         data = df
-    st.write("### 5 Man Lineups", data.sort_index())
+    st.write("### 5 Man Lineups")
+    st.markdown(data.to_html(escape=False), unsafe_allow_html=True)
 
 #     data = data.T.reset_index()
 #     data = pd.melt(data, id_vars=["index"]).rename(
