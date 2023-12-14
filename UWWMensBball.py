@@ -17,7 +17,8 @@ st.set_page_config(layout="wide")#, title='UWW Mens Basketball Data')
 
 # try:
 
-df = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/36816da475f83e6e3b40168d53591d3d12595b2b/warhawks.csv?raw=true")
+df = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/dec6c37f2f583dbe1b0b36ab7ddc78eac20794fa/warhawks.csv?raw=true")
+
 
 games_list = df[['Date','Opponent']].sort_values('Date')
 games_list['Opponent'] = games_list['Opponent'] + ' (' + games_list['Date'] + ')'
@@ -49,6 +50,7 @@ if not games:
                  ])[['MinutesOnCourt','UWW_PTS_SCORED','OPP_PTS_SCORED','UWW_PLUS_MINUS','UWW_ASST_TURN','UWW_REBOUNDING']].sum().reset_index()
 
     df = df.sort_values('MinutesOnCourt',ascending=False)
+
 else:
     
     games_list_search = '|'.join(games)
@@ -58,6 +60,7 @@ else:
                  # 'Opponent',
                   'UWW_LINEUP'
                  ])[['MinutesOnCourt','UWW_PTS_SCORED','OPP_PTS_SCORED','UWW_PLUS_MINUS','UWW_ASST_TURN','UWW_REBOUNDING']].sum().reset_index()
+    df['MinutesOnCourt'] = df['MinutesOnCourt'].round(2)
 
     df = df.sort_values('MinutesOnCourt',ascending=False)
 
@@ -66,7 +69,7 @@ if not players:
     # st.error("Please select at least one Player.")
     data = df
     st.write("### 5 Man Lineups")
-    st.markdown(data.style.hide(axis="index").to_html(escape=False), unsafe_allow_html=True)
+    st.markdown(data.round(1).style.hide(axis="index").to_html(escape=False), unsafe_allow_html=True)
 
 else:
     if len(players)==1:
