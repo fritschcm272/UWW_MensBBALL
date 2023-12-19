@@ -385,11 +385,6 @@ df = df.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
 st.dataframe(
     df,
     column_config={
-        "UWW_LINEUP": "Lineup",
-        # "UWW_LINEUP_PICS": "Pics",
-        # st.column_config.ImageColumn(
-        #     "Preview Image", help="Streamlit app preview screenshots"
-        # ),
         "Opponent":"Games",
         "MinutesOnCourt": "Minutes",
         "UWW_PLUS_MINUS": "Current Points +/-",
@@ -401,5 +396,5 @@ st.dataframe(
         "UWW_ASST_TUN": "Assist/Turnover",
         "UWW_REBOUNDING": "Rebounding +/-"
     },
-    hide_index=True,
+    hide_index=True
 )
