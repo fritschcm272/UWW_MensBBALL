@@ -342,30 +342,29 @@ else:
     games_list_search = games_list_search.replace(r"\(","")#.replace(r"\)","")
     df = full[(full['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
     
-    if not players:
-        
-        df = df
-    
-    else:
-        if len(players)==1:
-            df = df[(df['UWW_LINEUP'].str.contains(players[0]))]
-        if len(players)==2:
-            df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))]
-        if len(players)==3:
-            df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))]
-        if len(players)==4:
-            df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))]
-        if len(players)==5:
-            df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))& (df['UWW_LINEUP'].str.contains(players[4]))]
-        if len(players)>=6:
-            st.error("Please only select up to five players.")
-        #     data = df
-        # st.write("### 5 Man Lineups")
-        # st.markdown(data.style.hide(axis="index").to_html(escape=False), unsafe_allow_html=True)
+if not players:
+
+    df = df
+
+else:
+    if len(players)==1:
+        df = df[(df['UWW_LINEUP'].str.contains(players[0]))]
+    if len(players)==2:
+        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))]
+    if len(players)==3:
+        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))]
+    if len(players)==4:
+        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))]
+    if len(players)==5:
+        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))& (df['UWW_LINEUP'].str.contains(players[4]))]
+    if len(players)>=6:
+        st.error("Please only select up to five players.")
+    #     data = df
+    # st.write("### 5 Man Lineups")
+    # st.markdown(data.style.hide(axis="index").to_html(escape=False), unsafe_allow_html=True)
 
         
-        
-        
+       
 df['UWW_PLUS_MINUS_CUMSUM'] = df.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
 min_pm = df['UWW_PLUS_MINUS_CUMSUM'].min()
 max_pm = df['UWW_PLUS_MINUS_CUMSUM'].max()
