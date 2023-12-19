@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 import random
 
-import requests
-from bs4 import BeautifulSoup
+# import requests
+# from bs4 import BeautifulSoup
 import warnings
 warnings.filterwarnings('ignore')
 from datetime import timedelta
