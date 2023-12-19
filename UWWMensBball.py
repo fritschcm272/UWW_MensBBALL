@@ -384,17 +384,17 @@ df = df.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
 
 st.dataframe(
     df,
-    # column_config={
-    #     "Opponent":"Games",
-    #     "MinutesOnCourt": "Minutes",
-    #     "UWW_PLUS_MINUS": "Current Points +/-",
-    #     "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
-    #         "Trending +/-", 
-    #         y_min= min_pm, 
-    #         y_max= max_pm
-    #     ),
-    #     "UWW_ASST_TUN": "Assist/Turnover",
-    #     "UWW_REBOUNDING": "Rebounding +/-"
-    # },
-    # hide_index=True
+    column_config={
+        "Opponent":"Games",
+        "MinutesOnCourt": "Minutes",
+        "UWW_PLUS_MINUS": "Current Points +/-",
+        # "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
+        #     "Trending +/-", 
+        #     y_min= min_pm, 
+        #     y_max= max_pm
+        # ),
+        "UWW_ASST_TUN": "Assist/Turnover",
+        "UWW_REBOUNDING": "Rebounding +/-"
+    },
+    hide_index=True
 )
