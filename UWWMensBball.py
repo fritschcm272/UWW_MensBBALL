@@ -344,45 +344,101 @@ else:
     
 if not players:
 
-    df = df
+    df_l = df
 
 else:
     if len(players)==1:
-        df = df[(df['UWW_LINEUP'].str.contains(players[0]))]
+        df_l = df[(df['UWW_LINEUP'].str.contains(players[0]))]
     if len(players)==2:
-        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))]
+        df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))]
     if len(players)==3:
-        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))]
+        df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))]
     if len(players)==4:
-        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))]
+        df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))]
     if len(players)==5:
-        df = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))& (df['UWW_LINEUP'].str.contains(players[4]))]
+        df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))& (df['UWW_LINEUP'].str.contains(players[4]))]
     if len(players)>=6:
         st.error("Please only select up to five players.")
-    #     data = df
+        df_l = df
     # st.write("### 5 Man Lineups")
     # st.markdown(data.style.hide(axis="index").to_html(escape=False), unsafe_allow_html=True)
+    
+########################################
+st.header('Players', divider='gray')
+df_p = df
+df_p = df_p.explode('UWW_LINEUP')
+df_p['UWW_LINEUP']=df_p['UWW_LINEUP'].str.split(';').fillna(df_p['UWW_LINEUP'])
+df_p=df_p.explode('UWW_LINEUP',ignore_index=True)
 
-        
-       
-df['UWW_PLUS_MINUS_CUMSUM'] = df.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
-min_pm = df['UWW_PLUS_MINUS_CUMSUM'].min()
-max_pm = df['UWW_PLUS_MINUS_CUMSUM'].max()
-df['UWW_LINEUP'] = df['UWW_LINEUP'].replace(';',' ; ', regex=True)
-# df['UWW_LINEUP_PICS'] = df['UWW_LINEUP'].replace('*BARKER,JAMEER*', 'https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40', regex=True)
-# replace("BARKER,JAMEER",'https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40')
-df['Opponent'] = df['Opponent'] + ' (' + df['Date'].astype(str) + ')'
-df = df.drop(columns=['Date'])
-df = df.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
+###
+players_list_search = '|'.join(players)
+st.write(players_list_search)
+df_p = df_p[(df_p['UWW_LINEUP'].str.contains(players_list_search))]
+###
+
+df_p = df_p.groupby(['UWW_LINEUP','Opponent'], as_index=False).agg({
+                                                     # 'Opponent': 'nunique',
+                                                     'MinutesOnCourt': 'sum',
+                                                     'UWW_PLUS_MINUS': 'sum',
+                                                     # 'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
+                                                     'UWW_ASST_TURN': 'sum',
+                                                     'UWW_REBOUNDING': 'sum'})
+
+df_p['UWW_PLUS_MINUS_CUMSUM'] = df_p.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
+# min_pm_p = df_p['UWW_PLUS_MINUS_CUMSUM'].min()
+# max_pm_p = df_p['UWW_PLUS_MINUS_CUMSUM'].max()
+# df_p['UWW_LINEUP'] = df_p['UWW_LINEUP'].replace(';',' ; ', regex=True)
+# df_p['Opponent'] = df_p['Opponent'] + ' (' + df_p['Date'].astype(str) + ')'
+# df_p = df_p.drop(columns=['Date'])
+
+df_p = df_p.groupby(['UWW_LINEUP'], as_index=False).agg({
+                                                     'Opponent': 'nunique',
                                                      'MinutesOnCourt': 'sum',
                                                      'UWW_PLUS_MINUS': 'sum',
                                                      'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
                                                      'UWW_ASST_TURN': 'sum',
                                                      'UWW_REBOUNDING': 'sum'})
-df = df.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
+
+df_p = df_p.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
+       
+st.dataframe(
+    df_p,
+    column_config={
+        "Opponent":"Games",
+        "MinutesOnCourt": "Minutes",
+        "UWW_PLUS_MINUS": "Current Points +/-",
+        "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
+            "Trending +/-", 
+            # y_min= 0,#min_pm, 
+            # y_max= max_pm
+        ),
+        "UWW_ASST_TUN": "Assist/Turnover",
+        "UWW_REBOUNDING": "Rebounding +/-"
+    },
+    hide_index=True
+)
+
+########################################
+st.header('5 Man Lineups', divider='gray')
+
+df_l['UWW_PLUS_MINUS_CUMSUM'] = df_l.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
+min_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].min()
+max_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].max()
+df_l['UWW_LINEUP'] = df_l['UWW_LINEUP'].replace(';',' ; ', regex=True)
+# df['UWW_LINEUP_PICS'] = df['UWW_LINEUP'].replace('*BARKER,JAMEER*', 'https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40', regex=True)
+# replace("BARKER,JAMEER",'https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40')
+df_l['Opponent'] = df_l['Opponent'] + ' (' + df_l['Date'].astype(str) + ')'
+df_l = df_l.drop(columns=['Date'])
+df_l = df_l.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
+                                                     'MinutesOnCourt': 'sum',
+                                                     'UWW_PLUS_MINUS': 'sum',
+                                                     'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
+                                                     'UWW_ASST_TURN': 'sum',
+                                                     'UWW_REBOUNDING': 'sum'})
+df_l = df_l.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
 
 st.dataframe(
-    df,
+    df_l,
     column_config={
         "Opponent":"Games",
         "MinutesOnCourt": "Minutes",
