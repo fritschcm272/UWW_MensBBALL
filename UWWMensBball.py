@@ -372,7 +372,6 @@ df_p=df_p.explode('UWW_LINEUP',ignore_index=True)
 
 ###
 players_list_search = '|'.join(players)
-st.write(players_list_search)
 df_p = df_p[(df_p['UWW_LINEUP'].str.contains(players_list_search))]
 ###
 
