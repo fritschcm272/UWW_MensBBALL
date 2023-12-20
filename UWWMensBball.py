@@ -384,11 +384,6 @@ df_p = df_p.groupby(['UWW_LINEUP','Opponent'], as_index=False).agg({
                                                      'UWW_REBOUNDING': 'sum'})
 
 df_p['UWW_PLUS_MINUS_CUMSUM'] = df_p.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
-# min_pm_p = df_p['UWW_PLUS_MINUS_CUMSUM'].min()
-# max_pm_p = df_p['UWW_PLUS_MINUS_CUMSUM'].max()
-# df_p['UWW_LINEUP'] = df_p['UWW_LINEUP'].replace(';',' ; ', regex=True)
-# df_p['Opponent'] = df_p['Opponent'] + ' (' + df_p['Date'].astype(str) + ')'
-# df_p = df_p.drop(columns=['Date'])
 
 df_p = df_p.groupby(['UWW_LINEUP'], as_index=False).agg({
                                                      'Opponent': 'nunique',
@@ -411,7 +406,7 @@ st.dataframe(
             # y_min= 0,#min_pm, 
             # y_max= max_pm
         ),
-        "UWW_ASST_TUN": "Assist/Turnover",
+        "UWW_ASST_TURN": "Assist/Turnover",
         "UWW_REBOUNDING": "Rebounding +/-"
     },
     hide_index=True
@@ -419,6 +414,17 @@ st.dataframe(
 
 ########################################
 st.header('5 Man Lineups', divider='gray')
+if not games:
+    st.caption("Games: All")
+else:
+    st.caption("Games: "+','.join(games))
+if not players:
+    st.caption("Players: All")
+else:
+    st.caption("Players: "+'|'.join(players))
+
+
+
 
 df_l['UWW_PLUS_MINUS_CUMSUM'] = df_l.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
 min_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].min()
@@ -436,6 +442,20 @@ df_l = df_l.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
                                                      'UWW_REBOUNDING': 'sum'})
 df_l = df_l.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
 
+df_l_tot_moc = round(df_l['MinutesOnCourt'].sum(),2)
+df_l_tot_pm = df_l['UWW_PLUS_MINUS'].sum()
+df_l_tot_at = df_l['UWW_ASST_TURN'].sum()                      
+df_l_tot_reb = df_l['UWW_REBOUNDING'].sum()
+
+
+
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Minutes", df_l_tot_moc) #col1.metric("Minutes", "70 °F", "1.2 °F")
+col2.metric("Points +/-", df_l_tot_pm)
+col3.metric("A/T Ratio", df_l_tot_at)
+col4.metric("Reb +/-", df_l_tot_reb)
+
 st.dataframe(
     df_l,
     column_config={
@@ -447,8 +467,106 @@ st.dataframe(
             # y_min= 0,#min_pm, 
             # y_max= max_pm
         ),
-        "UWW_ASST_TUN": "Assist/Turnover",
+        "UWW_ASST_TURN": "Assist/Turnover",
         "UWW_REBOUNDING": "Rebounding +/-"
     },
     hide_index=True
 )
+
+
+
+
+
+
+########################################
+st.header('Player Comparison', divider='gray')
+if len(players)==2:
+    df_comp_1 = df[(df['UWW_LINEUP'].str.contains(players[0])) & (~df['UWW_LINEUP'].str.contains(players[1]))]
+    df_comp_2 = df[(df['UWW_LINEUP'].str.contains(players[1])) & (~df['UWW_LINEUP'].str.contains(players[0]))]
+    
+    if not games:
+        st.caption("Games: All")
+    else:
+        st.caption("Games: "+','.join(games))
+    if not players:
+        st.caption("Players: All")
+    else:
+        st.caption("Players: "+'|'.join(players))
+        
+    df_comp_1['UWW_PLUS_MINUS_CUMSUM'] = df_comp_1.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
+    min_pm = df_comp_1['UWW_PLUS_MINUS_CUMSUM'].min()
+    max_pm = df_comp_1['UWW_PLUS_MINUS_CUMSUM'].max()
+    df_comp_1['UWW_LINEUP'] = df_comp_1['UWW_LINEUP'].replace(';',' ; ', regex=True)
+    df_comp_1['Opponent'] = df_comp_1['Opponent'] + ' (' + df_comp_1['Date'].astype(str) + ')'
+    df_comp_1 = df_comp_1.drop(columns=['Date'])
+    df_comp_1 = df_comp_1.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
+                                                         'MinutesOnCourt': 'sum',
+                                                         'UWW_PLUS_MINUS': 'sum',
+                                                         'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
+                                                         'UWW_ASST_TURN': 'sum',
+                                                         'UWW_REBOUNDING': 'sum'})
+    df_comp_1 = df_comp_1.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
+
+    df_comp_1_tot_moc = round(df_comp_1['MinutesOnCourt'].sum(),2)
+    df_comp_1_tot_pm = df_comp_1['UWW_PLUS_MINUS'].sum()
+    df_comp_1_tot_at = df_comp_1['UWW_ASST_TURN'].sum()                      
+    df_comp_1_tot_reb = df_comp_1['UWW_REBOUNDING'].sum()
+
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.caption(players[0] + " without " + players[1])
+    col2.metric("Minutes", df_comp_1_tot_moc) #col1.metric("Minutes", "70 °F", "1.2 °F")
+    col3.metric("Points +/-", df_comp_1_tot_pm)
+    col4.metric("A/T Ratio", df_comp_1_tot_at)
+    col5.metric("Reb +/-", df_comp_1_tot_reb)
+    
+    
+    df_comp_2['UWW_PLUS_MINUS_CUMSUM'] = df_comp_2.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
+    min_pm = df_comp_2['UWW_PLUS_MINUS_CUMSUM'].min()
+    max_pm = df_comp_2['UWW_PLUS_MINUS_CUMSUM'].max()
+    df_comp_2['UWW_LINEUP'] = df_comp_2['UWW_LINEUP'].replace(';',' ; ', regex=True)
+    df_comp_2['Opponent'] = df_comp_2['Opponent'] + ' (' + df_comp_2['Date'].astype(str) + ')'
+    df_comp_2 = df_comp_2.drop(columns=['Date'])
+    df_comp_2 = df_comp_2.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
+                                                         'MinutesOnCourt': 'sum',
+                                                         'UWW_PLUS_MINUS': 'sum',
+                                                         'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
+                                                         'UWW_ASST_TURN': 'sum',
+                                                         'UWW_REBOUNDING': 'sum'})
+    df_comp_2 = df_comp_2.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
+
+    df_comp_2_tot_moc = round(df_comp_2['MinutesOnCourt'].sum(),2)
+    df_comp_2_tot_pm = df_comp_2['UWW_PLUS_MINUS'].sum()
+    df_comp_2_tot_at = df_comp_2['UWW_ASST_TURN'].sum()                      
+    df_comp_2_tot_reb = df_comp_2['UWW_REBOUNDING'].sum()
+
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.caption(players[1] + " without " + players[0])
+    col2.metric("Minutes", df_comp_2_tot_moc) #col1.metric("Minutes", "70 °F", "1.2 °F")
+    col3.metric("Points +/-", df_comp_2_tot_pm)
+    col4.metric("A/T Ratio", df_comp_2_tot_at)
+    col5.metric("Reb +/-", df_comp_2_tot_reb)
+
+#     st.dataframe(
+#         df_comp_1,
+#         column_config={
+#             "Opponent":"Games",
+#             "MinutesOnCourt": "Minutes",
+#             "UWW_PLUS_MINUS": "Current Points +/-",
+#             "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
+#                 "Trending +/-", 
+#                 # y_min= 0,#min_pm, 
+#                 # y_max= max_pm
+#             ),
+#             "UWW_ASST_TURN": "Assist/Turnover",
+#             "UWW_REBOUNDING": "Rebounding +/-"
+#         },
+#         hide_index=True
+#     )
+
+else:
+    st.subheader('_Available when 2 players are selected_')
+
+
+
