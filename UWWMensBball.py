@@ -1,4 +1,6 @@
 import streamlit as st
+from streamlit_modal import Modal
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import random
@@ -324,12 +326,14 @@ def dataframe_with_selections(df):
 
 
 # df = pbp_full
-full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_lineups.csv?raw=true")
+
 
 stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_stats.csv?raw=true")
+stats['Date'] = pd.to_datetime(stats['Date'])
+stats['Opponent'] = stats['Opponent'] + ' (' + stats['Date'].astype(str) + ')'
 
 
-
+full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_lineups.csv?raw=true")
 full = full.sort_values(['UWW_LINEUP','Date'])
 full['Date'] = pd.to_datetime(full['Date'])
 full = full.sort_values('Date')
@@ -420,74 +424,102 @@ df_p = df_p.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,Fal
 # df_p['Photo'] = "https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40"
 
 
-col1, col2 = st.columns([3, 1])
+# col1, col2 = st.columns([3, 1])
 
-with col1:
+# with col1:
 
     
-    st.dataframe(
-        df_p,
-        column_config={
-            # "Select": st.column_config.CheckboxColumn(required=True),
-            "UWW_LINEUP":"Player",
-    #         "Photo": {st.write(321)},
-    #         # "": st.column_config.ImageColumn("Photo", help="The user's avatar"),
-    #         # "Photo":{"Player","Games"},
+st.dataframe(
+    df_p,
+    column_config={
+        # "Select": st.column_config.CheckboxColumn(required=True),
+        "UWW_LINEUP":"Player",
+#         "Photo": {st.write(321)},
+#         # "": st.column_config.ImageColumn("Photo", help="The user's avatar"),
+#         # "Photo":{"Player","Games"},
 
-    #         # "Photo": st.image('https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40'),
-            "Opponent":"Games",
-            "MinutesOnCourt": "Minutes",
-            "UWW_PLUS_MINUS": "Current Points +/-",
-            "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
-                "Trending +/-", 
-                # y_min= 0,#min_pm, 
-                # y_max= max_pm
-            ),
-            "UWW_ASST_TURN": "Assist/Turnover",
-            "UWW_REBOUNDING": "Rebounding +/-"
-        },
-        hide_index=True
+#         # "Photo": st.image('https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40'),
+        "Opponent":"Games",
+        "MinutesOnCourt": "Minutes",
+        "UWW_PLUS_MINUS": "Current Points +/-",
+        "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
+            "Trending +/-", 
+            # y_min= 0,#min_pm, 
+            # y_max= max_pm
+        ),
+        "UWW_ASST_TURN": "Assist/Turnover",
+        "UWW_REBOUNDING": "Rebounding +/-"
+    },
+    hide_index=True
+)
+
+
+if len(players) == 1:
+    stats = stats[stats['Play_Player']==players[0]]
+
+    if len(games) > 0:
+        stats = stats[(stats['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
+
+    stats = stats.groupby(['Play_Player'])[['Points','Field_Goals_Made',
+                                                                                 'Field_Goals_Missed','3P_Field_Goals_Made','3P_Field_Goals_Missed',
+                                                                                 'FT_Made','FT_Missed','Rebound_Off','Rebound_Def',
+                                                                                 'Rebound_Total', 'Assists', 'Turnovers']].sum().reset_index()
+    
+    points = stats['Points'][0]
+    fgpercent = format((stats['Field_Goals_Made'][0] / (stats['Field_Goals_Made'][0] + stats['Field_Goals_Missed'][0])),".1%")
+    threeptpercent = format((stats['3P_Field_Goals_Made'][0] / (stats['3P_Field_Goals_Made'][0] + stats['3P_Field_Goals_Missed'][0])),".1%")
+    # stats = stats.drop(columns=['Play_Player'])
+
+
+    modal = Modal(
+        "Player Details", 
+        key="demo-modal",
+
+        # Optional
+        padding=20,    # default value
+        max_width=744  # default value
     )
-    
-    
-    
-    
 
-with col2:
-    st.header('Player Details', divider='gray')
-    if len(players)==1:
-        
-        stats = stats[stats['Play_Player']==players[0]].groupby(['Play_Player','Play_Result'])['Opponent'].count().reset_index()
-        stats = stats.drop(columns=['Play_Player'])
-        
-        # stats = stats.groupby(['Play_Player'], as_index=False).agg({'Opponent': 'count',
-        #                                                  'MinutesOnCourt': 'sum',
-        #                                                  'UWW_PLUS_MINUS': 'sum',
-        #                                                  'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
-        #                                                  'UWW_ASST_TURN': 'sum',
-        #                                                  'UWW_REBOUNDING': 'sum'})
-        
-        stats_points = 2
-        # stats_points = ((stats[stats['Play_Result']=='GOOD LAYUP']['Opponent']*2))+
-        #                 (stats[stats['Play_Result']=='GOOD DUNK']['Opponent']*2)+
-        #                 (stats[stats['Play_Result']=='GOOD JUMPER']['Opponent']*2)+
-        #                 (stats[stats['Play_Result']=='GOOD 3PTR']['Opponent']*3))+
-        #                 (stats[stats['Play_Result']=='GOOD FT']['Opponent']*1))
+    open_modal = st.button("Player Details")
+    if open_modal:
+        modal.open()
 
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        col1.image('https://uwwsports.com/images/2023/11/9/Miles_Barnstable.jpg?width=80&quality=90')
-        col2.metric("Points", stats_points)# df_l_tot_pm)
-        col3.metric("A/T Ratio", "2")# df_l_tot_at)
-        col4.metric("Reb +/-", "2")# df_l_tot_reb)
-        
-        
-        st.dataframe(stats)
-        
-        
-    else:
-        st.subheader('_Available when 1 player is selected_')
+    if modal.is_open():
+        with modal.container():
+
+    #         st.write("Text goes here")
+
+    #         html_string = '''
+    #         <h1>HTML string in RED</h1>
+
+    #         <script language="javascript">
+    #           document.querySelector("h1").style.color = "red";
+    #         </script>
+    #         '''
+    #         components.html(html_string)
+
+    #         st.write("Some fancy text")
+    #         value = st.checkbox("Check me")
+    #         st.write(f"Checkbox checked: {value}")
+
+
+
+
+            # st.header('Player Details', divider='gray')
+
+            col1, col2 = st.columns(2)
+
+            col1.image('https://uwwsports.com/images/2023/11/9/Miles_Barnstable.jpg?width=80&quality=90')
+            col2.text('Miles Barnstable')
+
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Points", points)# df_l_tot_pm)
+            col2.metric("FG %", fgpercent)
+            col3.metric("3PT %", threeptpercent)# df_l_tot_reb)
+
+            st.dataframe(stats)
+
 
 ########################################
 st.header('5 Man Lineups', divider='gray')
