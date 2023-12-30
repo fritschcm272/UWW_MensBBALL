@@ -324,9 +324,10 @@ def dataframe_with_selections(df):
 
 
 # df = pbp_full
-full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/8428c435cfae34c5e073fc5d9db3555d8e2e1df9/warhawks_lineups.csv?raw=true")
+full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_lineups.csv?raw=true")
 
-stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/418f7001baf41207e685462c5edd5e1140bf62ce/warhawks_stats.csv?raw=true")
+stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_stats.csv?raw=true")
+
 
 
 full = full.sort_values(['UWW_LINEUP','Date'])
@@ -466,12 +467,12 @@ with col2:
         #                                                  'UWW_ASST_TURN': 'sum',
         #                                                  'UWW_REBOUNDING': 'sum'})
         
-        
-        stats_points = ((stats[stats['Play_Result']=='GOOD LAYUP']['Opponent']*2))+
-                        (stats[stats['Play_Result']=='GOOD DUNK']['Opponent']*2)+
-                        (stats[stats['Play_Result']=='GOOD JUMPER']['Opponent']*2)+
-                        (stats[stats['Play_Result']=='GOOD 3PTR']['Opponent']*3))+
-                        (stats[stats['Play_Result']=='GOOD FT']['Opponent']*1))
+        stats_points = 2
+        # stats_points = ((stats[stats['Play_Result']=='GOOD LAYUP']['Opponent']*2))+
+        #                 (stats[stats['Play_Result']=='GOOD DUNK']['Opponent']*2)+
+        #                 (stats[stats['Play_Result']=='GOOD JUMPER']['Opponent']*2)+
+        #                 (stats[stats['Play_Result']=='GOOD 3PTR']['Opponent']*3))+
+        #                 (stats[stats['Play_Result']=='GOOD FT']['Opponent']*1))
 
         
         col1, col2, col3, col4 = st.columns(4)
