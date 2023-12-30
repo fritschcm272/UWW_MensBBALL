@@ -14,6 +14,21 @@ from datetime import timedelta
 st.set_page_config(layout="wide")#, title='UWW Mens Basketball Data')
 
 
+def dataframe_with_selections(df):
+    df_with_selections = df.copy()
+    df_with_selections.insert(0, "Select", False)
+
+    # Get dataframe row-selections from user with st.data_editor
+    edited_df = st.data_editor(
+        df_with_selections,
+        hide_index=True,
+        column_config={"Select": st.column_config.CheckboxColumn(required=True)},
+        disabled=df.columns,
+    )
+
+    # Filter the dataframe using the temporary column, then drop the column
+    selected_rows = edited_df[edited_df.Select]
+    return selected_rows.drop('Select', axis=1)
 
 
 # def playbyplay():
@@ -309,7 +324,11 @@ st.set_page_config(layout="wide")#, title='UWW Mens Basketball Data')
 
 
 # df = pbp_full
-full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/8b14858e205007e231252c2dd86bb8ca3ef20fa3/warhawks.csv?raw=true")
+full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/8428c435cfae34c5e073fc5d9db3555d8e2e1df9/warhawks_lineups.csv?raw=true")
+
+stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/418f7001baf41207e685462c5edd5e1140bf62ce/warhawks_stats.csv?raw=true")
+
+
 full = full.sort_values(['UWW_LINEUP','Date'])
 full['Date'] = pd.to_datetime(full['Date'])
 full = full.sort_values('Date')
@@ -394,23 +413,80 @@ df_p = df_p.groupby(['UWW_LINEUP'], as_index=False).agg({
                                                      'UWW_REBOUNDING': 'sum'})
 
 df_p = df_p.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
-       
-st.dataframe(
-    df_p,
-    column_config={
-        "Opponent":"Games",
-        "MinutesOnCourt": "Minutes",
-        "UWW_PLUS_MINUS": "Current Points +/-",
-        "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
-            "Trending +/-", 
-            # y_min= 0,#min_pm, 
-            # y_max= max_pm
-        ),
-        "UWW_ASST_TURN": "Assist/Turnover",
-        "UWW_REBOUNDING": "Rebounding +/-"
-    },
-    hide_index=True
-)
+
+# df_p.insert(0, "Select", False)
+
+# df_p['Photo'] = "https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40"
+
+
+col1, col2 = st.columns([3, 1])
+
+with col1:
+
+    
+    st.dataframe(
+        df_p,
+        column_config={
+            # "Select": st.column_config.CheckboxColumn(required=True),
+            "UWW_LINEUP":"Player",
+    #         "Photo": {st.write(321)},
+    #         # "": st.column_config.ImageColumn("Photo", help="The user's avatar"),
+    #         # "Photo":{"Player","Games"},
+
+    #         # "Photo": st.image('https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40'),
+            "Opponent":"Games",
+            "MinutesOnCourt": "Minutes",
+            "UWW_PLUS_MINUS": "Current Points +/-",
+            "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
+                "Trending +/-", 
+                # y_min= 0,#min_pm, 
+                # y_max= max_pm
+            ),
+            "UWW_ASST_TURN": "Assist/Turnover",
+            "UWW_REBOUNDING": "Rebounding +/-"
+        },
+        hide_index=True
+    )
+    
+    
+    
+    
+
+with col2:
+    st.header('Player Details', divider='gray')
+    if len(players)==1:
+        
+        stats = stats[stats['Play_Player']==players[0]].groupby(['Play_Player','Play_Result'])['Opponent'].count().reset_index()
+        stats = stats.drop(columns=['Play_Player'])
+        
+        # stats = stats.groupby(['Play_Player'], as_index=False).agg({'Opponent': 'count',
+        #                                                  'MinutesOnCourt': 'sum',
+        #                                                  'UWW_PLUS_MINUS': 'sum',
+        #                                                  'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
+        #                                                  'UWW_ASST_TURN': 'sum',
+        #                                                  'UWW_REBOUNDING': 'sum'})
+        
+        
+        stats_points = ((stats[stats['Play_Result']=='GOOD LAYUP']['Opponent']*2))+
+                        (stats[stats['Play_Result']=='GOOD DUNK']['Opponent']*2)+
+                        (stats[stats['Play_Result']=='GOOD JUMPER']['Opponent']*2)+
+                        (stats[stats['Play_Result']=='GOOD 3PTR']['Opponent']*3))+
+                        (stats[stats['Play_Result']=='GOOD FT']['Opponent']*1))
+
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        col1.image('https://uwwsports.com/images/2023/11/9/Miles_Barnstable.jpg?width=80&quality=90')
+        col2.metric("Points", stats_points)# df_l_tot_pm)
+        col3.metric("A/T Ratio", "2")# df_l_tot_at)
+        col4.metric("Reb +/-", "2")# df_l_tot_reb)
+        
+        
+        st.dataframe(stats)
+        
+        
+    else:
+        st.subheader('_Available when 1 player is selected_')
 
 ########################################
 st.header('5 Man Lineups', divider='gray')
@@ -459,6 +535,7 @@ col4.metric("Reb +/-", df_l_tot_reb)
 st.dataframe(
     df_l,
     column_config={
+        "UWW_LINEUP":"Lineup",
         "Opponent":"Games",
         "MinutesOnCourt": "Minutes",
         "UWW_PLUS_MINUS": "Current Points +/-",
