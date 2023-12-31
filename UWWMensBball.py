@@ -365,6 +365,7 @@ else:
     games_list_search = '|'.join(games)
     games_list_search = games_list_search.replace(r"\(","")#.replace(r"\)","")
     df = full[(full['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
+    stats = stats[(stats['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
     
 if not players:
 
@@ -419,6 +420,24 @@ df_p = df_p.groupby(['UWW_LINEUP'], as_index=False).agg({
 
 df_p = df_p.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
 
+
+stats = stats.groupby(['Play_Player'])[['Points','Field_Goals_Made',
+                                                                                 'Field_Goals_Missed','3P_Field_Goals_Made','3P_Field_Goals_Missed',
+                                                                                 'FT_Made','FT_Missed','Rebound_Off','Rebound_Def',
+                                                                                 'Rebound_Total', 'Assists', 'Turnovers']].sum().reset_index()
+
+# format(,".1%")
+stats['fgpercent'] = (stats['Field_Goals_Made'] / (stats['Field_Goals_Made'] + stats['Field_Goals_Missed']))*100
+stats['threeptpercent'] = (stats['3P_Field_Goals_Made'] / (stats['3P_Field_Goals_Made'] + stats['3P_Field_Goals_Missed']))*100
+stats['ftpercent'] = (stats['FT_Made'] / (stats['FT_Made'] + stats['FT_Missed']))*100
+
+# Merge in player stats table
+
+df_p = pd.merge(df_p,stats, how='left', left_on='UWW_LINEUP', right_on='Play_Player')
+                
+                  
+                
+
 # df_p.insert(0, "Select", False)
 
 # df_p['Photo'] = "https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40"
@@ -430,7 +449,19 @@ df_p = df_p.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,Fal
 
     
 st.dataframe(
-    df_p,
+    df_p[[
+          'UWW_LINEUP',
+          'Opponent',
+          'MinutesOnCourt',
+          'UWW_PLUS_MINUS',
+          'UWW_PLUS_MINUS_CUMSUM',
+          'UWW_ASST_TURN',
+          'UWW_REBOUNDING',
+          'Points',
+          'fgpercent',
+          'threeptpercent',
+          'ftpercent'
+         ]],
     column_config={
         # "Select": st.column_config.CheckboxColumn(required=True),
         "UWW_LINEUP":"Player",
@@ -448,7 +479,12 @@ st.dataframe(
             # y_max= max_pm
         ),
         "UWW_ASST_TURN": "Assist/Turnover",
-        "UWW_REBOUNDING": "Rebounding +/-"
+        "UWW_REBOUNDING": "Rebounding +/-",
+        "Points": "Points Scored",
+        "fgpercent": st.column_config.NumberColumn('FG %', format='%.1f %%'),
+        "threeptpercent": st.column_config.NumberColumn('3PT FG %', format='%.1f %%'),
+        "ftpercent": st.column_config.NumberColumn('FT %', format='%.1f %%')
+        
     },
     hide_index=True
 )
@@ -457,18 +493,9 @@ st.dataframe(
 if len(players) == 1:
     stats = stats[stats['Play_Player']==players[0]]
 
-    if len(games) > 0:
-        stats = stats[(stats['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
 
-    stats = stats.groupby(['Play_Player'])[['Points','Field_Goals_Made',
-                                                                                 'Field_Goals_Missed','3P_Field_Goals_Made','3P_Field_Goals_Missed',
-                                                                                 'FT_Made','FT_Missed','Rebound_Off','Rebound_Def',
-                                                                                 'Rebound_Total', 'Assists', 'Turnovers']].sum().reset_index()
     
-    points = stats['Points'][0]
-    fgpercent = format((stats['Field_Goals_Made'][0] / (stats['Field_Goals_Made'][0] + stats['Field_Goals_Missed'][0])),".1%")
-    threeptpercent = format((stats['3P_Field_Goals_Made'][0] / (stats['3P_Field_Goals_Made'][0] + stats['3P_Field_Goals_Missed'][0])),".1%")
-    # stats = stats.drop(columns=['Play_Player'])
+
 
 
     modal = Modal(
@@ -514,9 +541,9 @@ if len(players) == 1:
 
 
             col1, col2, col3 = st.columns(3)
-            col1.metric("Points", points)# df_l_tot_pm)
-            col2.metric("FG %", fgpercent)
-            col3.metric("3PT %", threeptpercent)# df_l_tot_reb)
+            col1.metric("Points", stats['Points'][0])# df_l_tot_pm)
+            col2.metric("FG %", stats['fgpercent'][0])
+            col3.metric("3PT %", stats['threeptpercent'][0])# df_l_tot_reb)
 
             st.dataframe(stats)
 
