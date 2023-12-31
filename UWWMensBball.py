@@ -344,9 +344,16 @@ games_list = list(games_list['Opponent'].drop_duplicates())
 
 players_list = list(full['UWW_LINEUP'].str.split(';',expand=True).stack().reset_index()[0].drop_duplicates().sort_values())
 
-games = st.multiselect(
-    "Choose Games", games_list, #["China", "United States of America"]
-)
+
+
+last3games = st.checkbox('Last 3 Games')
+
+if last3games:
+    games = st.multiselect("Choose Games", games_list, games_list[-3:])
+
+else:
+    games = st.multiselect("Choose Games", games_list)
+
 
 games_list_search = '|'.join(games)
 games_list_search = games_list_search.replace('(','').replace(')','') 
