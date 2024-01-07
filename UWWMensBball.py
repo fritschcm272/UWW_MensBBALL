@@ -498,7 +498,7 @@ st.dataframe(
 
 
 if len(players) == 1:
-    stats = stats[stats['Play_Player']==players[0]]
+    stats = stats[stats['Play_Player']==players[0]].reset_index()
 
 
     
@@ -569,6 +569,7 @@ else:
 
 
 
+
 df_l['UWW_PLUS_MINUS_CUMSUM'] = df_l.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
 min_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].min()
 max_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].max()
@@ -582,8 +583,31 @@ df_l = df_l.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
                                                      'UWW_PLUS_MINUS': 'sum',
                                                      'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
                                                      'UWW_ASST_TURN': 'sum',
-                                                     'UWW_REBOUNDING': 'sum'})
+                                                     'UWW_REBOUNDING': 'sum',
+                                                     'UWW_FG_MADE': 'sum',
+                                                     'UWW_FG_MISS': 'sum',
+                                                     'UWW_GOOD 3PTR': 'sum',
+                                                     'UWW_MISS 3PTR': 'sum',
+                                                     'UWW_GOOD FT':'sum',
+                                                     'UWW_MISS FT':'sum'})
+
+
+
+
+df_l['fgpercent'] = (df_l['UWW_FG_MADE'] / (df_l['UWW_FG_MADE'] + df_l['UWW_FG_MISS']))*100
+df_l['threeptpercent'] = (df_l['UWW_GOOD 3PTR'] / (df_l['UWW_GOOD 3PTR'] + df_l['UWW_MISS 3PTR']))*100
+df_l['ftpercent'] = (df_l['UWW_GOOD FT'] / (df_l['UWW_GOOD FT'] + df_l['UWW_MISS FT']))*100
+
+df_l = df_l.drop(columns=['UWW_FG_MADE',
+                                                     'UWW_FG_MISS',
+                                                     'UWW_GOOD 3PTR',
+                                                     'UWW_MISS 3PTR',
+                                                     'UWW_GOOD FT',
+                                                     'UWW_MISS FT'])
+
 df_l = df_l.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
+
+
 
 df_l_tot_moc = round(df_l['MinutesOnCourt'].sum(),2)
 df_l_tot_pm = df_l['UWW_PLUS_MINUS'].sum()
@@ -599,6 +623,7 @@ col2.metric("Points +/-", df_l_tot_pm)
 col3.metric("A/T Ratio", df_l_tot_at)
 col4.metric("Reb +/-", df_l_tot_reb)
 
+
 st.dataframe(
     df_l,
     column_config={
@@ -612,7 +637,12 @@ st.dataframe(
             # y_max= max_pm
         ),
         "UWW_ASST_TURN": "Assist/Turnover",
-        "UWW_REBOUNDING": "Rebounding +/-"
+        "UWW_REBOUNDING": "Rebounding +/-",
+        # "Points": "Points Scored",
+        "fgpercent": st.column_config.NumberColumn('FG %', format='%.1f %%'),
+        "threeptpercent": st.column_config.NumberColumn('3PT FG %', format='%.1f %%'),
+        "ftpercent": st.column_config.NumberColumn('FT %', format='%.1f %%')
+        
     },
     hide_index=True
 )
