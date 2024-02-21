@@ -210,7 +210,7 @@ num_players = st.selectbox('Select Number of Players', [1,2,3,4,5], 4)
 stats_possessions['Players'] = stats_possessions.UWW_LINEUP.str.split(';').apply(lambda r: list(combinations(r, num_players)))
 stats_possessions = stats_possessions.explode('Players')
 
-
+st.write(stats_possessions.dtypes)
 stats_games = stats_possessions.groupby(['Opponent','Players']).sum().reset_index()
 stats_games['Games'] = 1
 # st.dataframe(stats_games)
