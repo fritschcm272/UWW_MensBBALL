@@ -245,7 +245,8 @@ stats_totals = stats_totals.sort_values(['Minutes'],ascending=[False])
 cm = sns.light_palette('#462e88', as_cmap=True)
 
 stats_totals_style = stats_totals.style.background_gradient(cmap=cm).set_precision(0)
-    
+
+st.write(stats_totals.dtypes)
 st.dataframe(stats_totals_style,hide_index=True) #,height=700
 # st.dataframe(stats_totals)
 
