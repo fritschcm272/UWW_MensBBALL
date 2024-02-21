@@ -1,6 +1,7 @@
 # IMPORTS ----------------------------------------------------------------------
 
 import pandas as pd
+
 import numpy as np
 # import matplotlib
 # matplotlib.use("Agg")
@@ -13,6 +14,8 @@ from itertools import combinations
 # from statsmodels.nonparametric.smoothers_lowess import lowess
 import streamlit as st
 # from st_mui_table import st_mui_table
+
+st.write(pd. __version__)
 
 # SETUP ------------------------------------------------------------------------
 st.set_page_config(page_title='UWW Mens Basketball Data',
