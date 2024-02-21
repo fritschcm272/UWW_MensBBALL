@@ -22,11 +22,11 @@ st.set_page_config(page_title='UWW Mens Basketball Data',
 
 # st.subheader('')
 
-# stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_stats.csv?raw=true")
-stats = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\warhawks_lineups.csv")
+stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_stats.csv?raw=true")
+# stats = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\warhawks_lineups.csv")
 
 
-scouts = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\scouts.csv")
+# scouts = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\scouts.csv")
 
 ##### Merge Scouts
 stats['OPP_LINEUP_PLAYER'] = stats["OPP_LINEUP"].str.split(";")
