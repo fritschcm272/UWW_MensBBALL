@@ -15,7 +15,7 @@ from itertools import combinations
 import streamlit as st
 # from st_mui_table import st_mui_table
 
-st.write(pd. __version__)
+
 
 # SETUP ------------------------------------------------------------------------
 st.set_page_config(page_title='UWW Mens Basketball Data',
