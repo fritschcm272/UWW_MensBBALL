@@ -8,9 +8,9 @@ import numpy as np
 # from matplotlib.backends.backend_agg import RendererAgg
 # from matplotlib.figure import Figure
 # import seaborn as sns
-import statsmodels
+# import statsmodels
 from itertools import combinations
-from statsmodels.nonparametric.smoothers_lowess import lowess
+# from statsmodels.nonparametric.smoothers_lowess import lowess
 import streamlit as st
 # from st_mui_table import st_mui_table
 
