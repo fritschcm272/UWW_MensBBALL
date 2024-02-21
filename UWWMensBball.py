@@ -28,16 +28,16 @@ stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/war
 
 # scouts = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\scouts.csv")
 
-##### Merge Scouts
-stats['OPP_LINEUP_PLAYER'] = stats["OPP_LINEUP"].str.split(";")
-stats = stats.explode("OPP_LINEUP_PLAYER")
-stats['copy_index'] = stats.index
-stats = pd.merge(stats,scouts, how='left',left_on=['Opponent','OPP_LINEUP_PLAYER'],right_on=['team','name'])
-stats[['shooter','driver']] = stats[['shooter','driver']].fillna(0)
-stats['num_shooters'] = stats.groupby(['copy_index'])['shooter'].cumsum()
-stats = stats.drop_duplicates(subset=['copy_index'], keep='last')
-# st.dataframe(stats)
-#####
+# ##### Merge Scouts
+# stats['OPP_LINEUP_PLAYER'] = stats["OPP_LINEUP"].str.split(";")
+# stats = stats.explode("OPP_LINEUP_PLAYER")
+# stats['copy_index'] = stats.index
+# stats = pd.merge(stats,scouts, how='left',left_on=['Opponent','OPP_LINEUP_PLAYER'],right_on=['team','name'])
+# stats[['shooter','driver']] = stats[['shooter','driver']].fillna(0)
+# stats['num_shooters'] = stats.groupby(['copy_index'])['shooter'].cumsum()
+# stats = stats.drop_duplicates(subset=['copy_index'], keep='last')
+# # st.dataframe(stats)
+# #####
 
 stats['Date'] = pd.to_datetime(stats['Date'])
 stats['Opponent'] = stats['Opponent'] + ' (' + stats['Date'].astype(str) + ')'
