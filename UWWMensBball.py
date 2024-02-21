@@ -12,7 +12,7 @@ import statsmodels
 from itertools import combinations
 from statsmodels.nonparametric.smoothers_lowess import lowess
 import streamlit as st
-from st_mui_table import st_mui_table
+# from st_mui_table import st_mui_table
 
 # SETUP ------------------------------------------------------------------------
 st.set_page_config(page_title='UWW Mens Basketball Data',
