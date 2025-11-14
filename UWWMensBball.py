@@ -1,762 +1,389 @@
-# IMPORTS ----------------------------------------------------------------------
-
 import pandas as pd
-
+import glob
+import os
 import numpy as np
-# import matplotlib
-# matplotlib.use("Agg")
-# import matplotlib.pyplot as plt
-# from matplotlib.backends.backend_agg import RendererAgg
-# from matplotlib.figure import Figure
-import seaborn as sns
-# import statsmodels
-from itertools import combinations
-# from statsmodels.nonparametric.smoothers_lowess import lowess
+import helpers
 import streamlit as st
-# from st_mui_table import st_mui_table
+import matplotlib.pyplot as plt
+from io import BytesIO
+from matplotlib.backends.backend_pdf import PdfPages
 
+# --- 1. Data Loading and Aggregation ---
 
+# Specify the path to the directory containing your CSV files
+csv_directory_path = 'Game_Data\\'
 
-# SETUP ------------------------------------------------------------------------
-st.set_page_config(page_title='UWW Mens Basketball Data',
-                   page_icon='https://pbs.twimg.com/profile_images/'\
-                             '1265092923588259841/LdwH0Ex1_400x400.jpg',
-                   layout="wide")
+# Use glob to find all files ending with .csv in the specified directory
+csv_files = glob.glob(os.path.join(csv_directory_path, "*.csv"))
 
-# st.subheader('')
+# Initialize an empty list to store the DataFrames
+list_of_dfs = []
 
-stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_lineups.csv?raw=true")
-# stats = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\warhawks_lineups.csv")
-
-
-# scouts = pd.read_csv(r"C:\Users\frits\OneDrive\Documents\UWW MBB\scouts.csv")
-
-# ##### Merge Scouts
-# stats['OPP_LINEUP_PLAYER'] = stats["OPP_LINEUP"].str.split(";")
-# stats = stats.explode("OPP_LINEUP_PLAYER")
-# stats['copy_index'] = stats.index
-# stats = pd.merge(stats,scouts, how='left',left_on=['Opponent','OPP_LINEUP_PLAYER'],right_on=['team','name'])
-# stats[['shooter','driver']] = stats[['shooter','driver']].fillna(0)
-# stats['num_shooters'] = stats.groupby(['copy_index'])['shooter'].cumsum()
-# stats = stats.drop_duplicates(subset=['copy_index'], keep='last')
-# # st.dataframe(stats)
-# #####
-
-stats['Date'] = pd.to_datetime(stats['Date'])
-stats['Opponent'] = stats['Opponent'] + ' (' + stats['Date'].astype(str) + ')'
-
-
-
-#### FILTERS ####
-
-games_list = stats[['Opponent']]
-games_list = list(games_list['Opponent'].drop_duplicates())
-
-players_list = list(stats[(stats['Team']=='UWW')&
-                           (stats['Play_Player']!='TEAM')]['Play_Player'].sort_values().drop_duplicates())
-# players_list = list(full['UWW_LINEUP'].str.split(';',expand=True).stack().reset_index()[0].drop_duplicates().sort_values())
-
-last3games = st.checkbox('Last 3 Games')
-
-if last3games:
-    games = st.multiselect("Choose Games", games_list, games_list[-3:])
-
-else:
-    games = st.multiselect("Choose Games", games_list)
-
-
-games_list_search = '|'.join(games)
-games_list_search = games_list_search.replace('(','').replace(')','') 
-
-# games_list_search = '|'.join(games)
-# games_list_search = games_list_search.replace(r"\(","")#.replace(r"\)","")
-
-players = st.multiselect(
-    "Choose Players On Court", players_list, #["China", "United States of America"]
-)
-
-
-if not games:
-    
-    stats = stats
-    
-else:
-    
-    
-    stats = stats[(stats['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
-    
-if not players:
-
-    stats = stats
-
-else:
-    if len(players)==1:
-        stats = stats[(stats['UWW_LINEUP'].str.contains(players[0]))]
-    if len(players)==2:
-        stats = stats[(stats['UWW_LINEUP'].str.contains(players[0])) & (stats['UWW_LINEUP'].str.contains(players[1]))]
-    if len(players)==3:
-        stats = stats[(stats['UWW_LINEUP'].str.contains(players[0])) & (stats['UWW_LINEUP'].str.contains(players[1]))& (stats['UWW_LINEUP'].str.contains(players[2]))]
-    if len(players)==4:
-        stats = stats[(stats['UWW_LINEUP'].str.contains(players[0])) & (stats['UWW_LINEUP'].str.contains(players[1]))& (stats['UWW_LINEUP'].str.contains(players[2]))& (stats['UWW_LINEUP'].str.contains(players[3]))]
-    if len(players)==5:
-        stats = stats[(stats['UWW_LINEUP'].str.contains(players[0])) & (stats['UWW_LINEUP'].str.contains(players[1]))& (stats['UWW_LINEUP'].str.contains(players[2]))& (stats['UWW_LINEUP'].str.contains(players[3]))& (stats['UWW_LINEUP'].str.contains(players[4]))]
-    if len(players)>=6:
-        st.error("Please only select up to five players.")
-        stats = stats
+# Loop through files to read them into the list
+for file_path in csv_files:
+    try:
+        df = pd.read_csv(file_path)
+        list_of_dfs.append(df)
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
         
+# Combine all DataFrames
+if list_of_dfs:
+    combined_df = pd.concat(list_of_dfs, ignore_index=True)
+else:
+    combined_df = pd.DataFrame()
 
+# Define ALL potential columns for grouping based on your provided scouted roles
+ALL_GROUPING_COLS = [
+    "Driver/Shooter", 
+    "Post Scorer", 
+    "Playmaker", 
+    "Mid-Range Specialist", 
+    "Spot-Up Shooter", 
+    "Rebounder", 
+    "Not Scouted"
+] 
+
+# Loop through the grouping columns and convert their values to strings
+if not combined_df.empty:
+    for col in ALL_GROUPING_COLS:
+        if col in combined_df.columns:
+            # Convert values to strings
+            combined_df[col] = combined_df[col].astype(str)
+
+
+agg_dict = {
+        'DURATION_SECONDS': 'sum',
+        'AWAY_POINTS': 'sum',
+        'HOME_POINTS': 'sum',
+        'IS_END_OF_POSSESSION': 'sum'
+    }
+
+AWAY_TEAM_NAME = "Wis.-Whitewater"
+HOME_TEAM_NAME = "Ripon"
+
+# Filter out 'LINEUP' if it exists here, as it is always included
+ALL_GROUPING_COLS = [col for col in ALL_GROUPING_COLS if col != 'LINEUP'] 
+
+# --- 2. Streamlit Configuration and Dynamic Grouping ---
+
+st.set_page_config(page_title="Lineup Dashboard", layout="wide")
+
+st.title("📈 Lineup Analysis Dashboard")
+st.caption("Consistent sections, interactive filters, CSV/PNG downloads, and a polished PDF report.")
+
+
+
+
+# Define all columns that should be kept in the final results dataframe
+RATING_COLS = ['POSSESSIONS', 'Points For', 'Points Against',
+               'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating']
+
+# --- CORE DATA CALCULATION ---
+if combined_df.empty:
+    st.error("🚨 Error: No data available. Please ensure CSV files exist in the 'Game_Data\\' directory.")
+    away_final_results_top = pd.DataFrame()
+    away_final_results_explorer = pd.DataFrame()
+else:
+    # 1. Calculate Results for TOP 3 and PDF (LINEUP ONLY)
+    group_dict_top = ['LINEUP']
+    kept_cols_top = ['LINEUP'] + RATING_COLS
+    away_final_results_top = helpers.calculate_lineup_ratings(combined_df, AWAY_TEAM_NAME, HOME_TEAM_NAME, group_dict_top, agg_dict)
+
+
+
+# --- 3. Streamlit Helper Functions & Data Preparation ---
+
+# Function to reorder columns with 'LINEUP' and grouping context first
+def reorder_lineup_first(df, group_cols):
+    if 'LINEUP' in df.columns:
+        # Create new list with 'LINEUP' and other group cols first, followed by rating cols
+        cols = [col for col in group_cols if col in df.columns] + [col for col in df.columns if col not in group_cols]
+        return df[cols]
+    return df
+
+def prepare_dataframe(df, cols, group_dict_used):
+    if df.empty:
+        return pd.DataFrame(columns=cols)
         
-########################
-# three_more_shooters = st.checkbox('3 or More Shooters')
-
-# if three_more_shooters:
-#     stats = stats[stats['num_shooters']>=3]
-#########################   
+    df = df[[c for c in cols if c in df.columns]].copy()
     
+    # Apply the column reorder function here
+    return reorder_lineup_first(df, group_dict_used)
+
+# --- Sort helpers (Top 3 functions) ---
+def top3_by_possessions(df):
+    return df.sort_values(by='POSSESSIONS', ascending=False).head(3)
+
+def top3_by_plus_minus(df):
+    return df.sort_values(by=['Plus/Minus', 'POSSESSIONS'], ascending=[False, False]).head(3)
+
+def top3_by_net_rating(df):
+    return df.sort_values(by=['Net Rating', 'POSSESSIONS'], ascending=[False, False]).head(3)
+
+# --- PDF report generator (omitted for brevity, assume original function is here) ---
+# NOTE: The implementation of generate_pdf_report remains unchanged
+def generate_pdf_report(team_name, top_pos_df, top_pm_df, top_nr_df):
+    buf = BytesIO()
+    with PdfPages(buf) as pdf:
+        
+        # Title page
+        fig_title = plt.figure(figsize=(8.5, 11))
+        plt.text(0.5, 0.55, f"{team_name} Lineup Analysis Report",
+                  ha="center", va="center", fontsize=24, weight="bold")
+        plt.text(0.5, 0.45, "Top 3 by Possessions, Plus/Minus, Net Rating",
+                  ha="center", va="center", fontsize=14)
+        plt.axis("off")
+        pdf.savefig(fig_title)
+        plt.close(fig_title)
+        
+        # Function to add a single table section (using original logic)
+        def add_table_section(title, df):
+             if df.empty: return
+
+             df_pdf = df.copy()
+             if 'LINEUP' in df_pdf.columns and not df_pdf.empty and isinstance(df_pdf['LINEUP'].iloc[0], list):
+                 df_pdf['LINEUP'] = df_pdf['LINEUP'].apply(lambda x: "\n".join(x))
+             
+             # Filter columns for the PDF table display 
+             if "Possessions" in title:
+                 display_cols = ['LINEUP', 'POSSESSIONS']
+             elif "Plus/Minus" in title:
+                 display_cols = ['LINEUP', 'POSSESSIONS', 'Points For', 'Points Against', 'Plus/Minus']
+             elif "Net Rating" in title:
+                 display_cols = ['LINEUP', 'POSSESSIONS', 'Offensive Rating', 'Defensive Rating', 'Net Rating']
+                 
+             df_pdf = df_pdf[[col for col in display_cols if col in df_pdf.columns]]
+
+             fig_tbl = plt.figure(figsize=(8.5, 1.5 + len(df_pdf) * 0.3)) # Dynamic height
+             plt.axis("off")
+             tbl = plt.table(
+                 cellText=df_pdf.values,
+                 colLabels=df_pdf.columns.tolist(),
+                 loc="center",
+                 cellLoc="center"
+             )
+             tbl.auto_set_font_size(False)
+             tbl.set_fontsize(10)
+             tbl.scale(1, 1.2)
+             plt.title(title, fontsize=14, y=0.9)
+             pdf.savefig(fig_tbl, bbox_inches='tight')
+             plt.close(fig_tbl)
+
+        # Add tables to the PDF
+        add_table_section("Top 3 Lineups by Possessions (Table)", top_pos_df)
+        add_table_section("Top 3 Lineups by Plus/Minus (Table)", top_pm_df)
+        add_table_section("Top 3 Lineups by Net Rating (Table)", top_nr_df)
+
+    buf.seek(0)
+    return buf.getvalue()
+
+# --- 4. STREAMLIT APP DISPLAY ---
+
+# Prepare base dataframe for TOP 3 (LINEUP ONLY)
+df_base_top = prepare_dataframe(away_final_results_top, kept_cols_top, group_dict_top)
+
+if not df_base_top.empty:
+    # Get Top 3 DataFrames (derived from LINEUP ONLY results)
+    top_possessions_list = top3_by_possessions(df_base_top)
+    top_plus_minus_list = top3_by_plus_minus(df_base_top)
+    top_net_rating_list = top3_by_net_rating(df_base_top)
+
+    # --- Prepare Top 3 DataFrames for Streamlit Display ---
+    def prepare_top3_display_df(df_list):
+        df_display = df_list.copy()
+        if 'LINEUP' in df_display.columns and not df_display.empty and isinstance(df_display['LINEUP'].iloc[0], list):
+            df_display['LINEUP'] = df_display['LINEUP'].apply(lambda x: ", ".join(x))
+        return df_display
+
+    top_possessions_full = prepare_top3_display_df(top_possessions_list)
+    top_plus_minus_full = prepare_top3_display_df(top_plus_minus_list)
+    top_net_rating_full = prepare_top3_display_df(top_net_rating_list)
     
+    # Top 3 display uses LINEUP column only, since it was calculated with LINEUP only
+    POS_COLS = ['LINEUP', 'POSSESSIONS']
+    top_possessions = top_possessions_full[[col for col in POS_COLS if col in top_possessions_full.columns]]
 
-# stats = stats[stats.index <=34 ]
-# st.dataframe(stats)
+    PM_COLS = ['LINEUP', 'POSSESSIONS', 'Points For', 'Points Against', 'Plus/Minus']
+    top_plus_minus = top_plus_minus_full[[col for col in PM_COLS if col in top_plus_minus_full.columns]]
+    
+    NR_COLS = ['LINEUP', 'POSSESSIONS', 'Offensive Rating', 'Defensive Rating', 'Net Rating']
+    top_net_rating = top_net_rating_full[[col for col in NR_COLS if col in top_net_rating_full.columns]]
+    
+    # --- Section 1: Top 3 Lineups in Single Column (st.dataframe) ---
+    st.markdown("---")
+    st.header("🏆 Top 3 Lineup Analysis")
+    
+    st.subheader(f"Possessions")
+    st.dataframe(top_possessions.style.format({'POSSESSIONS': '{:,}'}), 
+                  use_container_width=True, hide_index=True)
+    
+    st.subheader("Plus/Minus")
+    st.dataframe(top_plus_minus.style.format({'POSSESSIONS': '{:,}'}), 
+                  use_container_width=True, hide_index=True)
+            
+    st.subheader("Net Rating")
+    st.dataframe(top_net_rating.style.format({'Offensive Rating': '{:.1f}', 
+                                            'Defensive Rating': '{:.1f}', 
+                                            'Net Rating': '{:.1f}',
+                                            'POSSESSIONS': '{:,}'}),
+                  use_container_width=True, hide_index=True)
 
-#### ADDITIONAL STATS #######
+    st.markdown("---")
 
-stats['Rebounds'] = stats['REBOUND OFF'] + stats['REBOUND DEF'] + stats['REBOUND DEADB']
+    # --- Section 2: Full dataset explorer with Player and Numeric Filtering ---
+    st.subheader("🔍 Explore full lineup data")
 
-#### INITIAL GROUPING ####
+    # # Start with the explorer DataFrame
+    # df = away_final_results_explorer.copy() 
 
-stats_possessions = stats.groupby(['Date','Opponent','Half','Time Remaining','UWW_LINEUP','Team','OPP_LINEUP']).agg({
-                                                     'MinutesOnCourt': 'sum',
-                                                     'Possession': 'sum',
-                                                     'PTS_SCORED': 'sum',
-                                                     'Rebounds': 'sum',
-                                                     'ASSIST': 'sum'
-                                                     }).rename(columns=
-     {'MinutesOnCourt':'Minutes',
-      'Possession':'Off_Possessions',
-      'PTS_SCORED':'Points',
-      'ASSIST':'Assists'}).sort_values(['Date','Opponent','Half','Time Remaining'],ascending=[True,True,True,False]).reset_index()
-
-
-
-stats_possessions['Off_Possessions_OPP'] = np.where(stats_possessions['Team']=='OPP',stats_possessions['Off_Possessions'],0)
-stats_possessions['Off_Possessions'] = np.where(stats_possessions['Team']=='OPP',0, stats_possessions['Off_Possessions'])
-
-stats_possessions['Points_OPP'] = np.where(stats_possessions['Team']=='OPP',stats_possessions['Points'],0)
-stats_possessions['Points'] = np.where(stats_possessions['Team']=='OPP',0, stats_possessions['Points'])
-
-stats_possessions['Rebounds_OPP'] = np.where(stats_possessions['Team']=='OPP',stats_possessions['Rebounds'],0)
-stats_possessions['Rebounds'] = np.where(stats_possessions['Team']=='OPP',0, stats_possessions['Rebounds'])
-
-stats_possessions['Assists_OPP'] = np.where(stats_possessions['Team']=='OPP',stats_possessions['Assists'],0)
-stats_possessions['Assists'] = np.where(stats_possessions['Team']=='OPP',0, stats_possessions['Assists'])
-
-stats_possessions = stats_possessions.groupby(['Date','Opponent','Half','Time Remaining','UWW_LINEUP','OPP_LINEUP']).sum().sort_values(['Date','Opponent','Half','Time Remaining'],ascending=[True,True,True,False]).reset_index()
-
-stats_possessions['Points_Total'] = stats_possessions.groupby(['Opponent'])['Points'].cumsum()
-stats_possessions['Points_Total_OPP'] = stats_possessions.groupby(['Opponent'])['Points_OPP'].cumsum()
-stats_possessions['Score_Difference'] = stats_possessions['Points_Total'] - stats_possessions['Points_Total_OPP']
-stats_possessions['Score_Difference_plus10'] = np.where(stats_possessions['Score_Difference']>=10,'Yes','No')
-stats_possessions['Score_Difference_plus1_9'] = np.where((stats_possessions['Score_Difference']>=1)&(stats_possessions['Score_Difference']<=9),'Yes','No')
-stats_possessions['Score_Difference_even'] = np.where(stats_possessions['Score_Difference']==0,'Yes','No')
-stats_possessions['Score_Difference_minus1_9'] = np.where((stats_possessions['Score_Difference']<=-1)&(stats_possessions['Score_Difference']>=-9),'Yes','No')
-stats_possessions['Score_Difference_minus10'] = np.where(stats_possessions['Score_Difference']<=-10,'Yes','No')
-
-score_difference = st.selectbox('Select Score Difference', ['All','Up 10 or more','Up between 1 and 9','Tied','Down between 1 and 9','Down 10 or more'], 0)
-
-if score_difference == 'Up 10 or more':
-    stats_possessions = stats_possessions[stats_possessions['Score_Difference_plus10']=='Yes']
-
-if score_difference == 'Up between 1 and 9':
-    stats_possessions = stats_possessions[stats_possessions['Score_Difference_plus1_9']=='Yes']
-
-if score_difference == 'Tied':
-    stats_possessions = stats_possessions[stats_possessions['Score_Difference_even']=='Yes']
-
-if score_difference == 'Down between 1 and 9':
-    stats_possessions = stats_possessions[stats_possessions['Score_Difference_minus1_9']=='Yes']
-
-if score_difference == 'Down 10 or more':
-    stats_possessions = stats_possessions[stats_possessions['Score_Difference_minus10']=='Yes']
 
     
-# st.dataframe(stats_possessions)
+    # Multiselect for additional grouping columns
+    selected_context_cols = st.multiselect(
+        "Group By Number of Opponent's Player Type on Court:",
+        options=ALL_GROUPING_COLS,
+        default=[]
+    )
 
-# stats_totals['Minutes'] = stats_totals['Minutes'] + stats_totals['Opp_Minutes']
-# stats_totals['Points'] = stats_totals['Points']
-# stats_totals['Points_PP'] = stats_totals['Points']/stats_totals['Off_Possessions']
-# stats_totals['Opp_Points'] = stats_totals['Points'].shift(1)
-# stats_totals['Plus_Minus_PP'] = (stats_totals['Points'] - stats_totals['Opp_Points']) / stats_totals['Off_Possessions']
-# stats_totals['Rebounds'] = stats_totals['Rebounds']
-# stats_totals['Opp_Rebounds'] = stats_totals['Rebounds'].shift(1)
-# stats_totals['Rebounds_Plus_Minus_PP'] = (stats_totals['Rebounds'] - stats_totals['Opp_Rebounds']) /stats_totals['Off_Possessions']
+    # Dynamically set group_dict for the EXPLORER TABLE
+    group_dict_explorer = ['LINEUP'] + selected_context_cols
 
-
-
-
-# stats_totals = stats_totals[stats_totals['Team']=='UWW']
-
-
-
-#### CHOOSE LINEUP LEVEL ####
-num_players = st.selectbox('Select Number of Players', [1,2,3,4,5], 4)
-# # if num_players == 1:
-# #     comb_div = 5
-# # if num_players == 2:
-# #     comb_div = 10
-# # if num_players == 3:
-# #     comb_div = 10 
-# # if num_players == 4:
-# #     comb_div = 5
-# # if num_players == 5:
-# #     comb_div = 1
-
-stats_possessions['Players'] = stats_possessions.UWW_LINEUP.str.split(';').apply(lambda r: list(combinations(r, num_players)))
-stats_possessions = stats_possessions.explode('Players')
-
-stats_games = stats_possessions.groupby(['Opponent','Players']).sum().reset_index()
-stats_games['Games'] = 1
-# st.dataframe(stats_games)
-
-
-
-
-stats_totals = stats_games.groupby(['Players']).sum().reset_index()
-
-###
-stats_totals = stats_totals[stats_totals['Off_Possessions']>0]
-stats_totals = stats_totals[stats_totals['Off_Possessions_OPP']>0]
-###
-
-stats_totals['Plus_Minus'] = stats_totals['Points'] - stats_totals['Points_OPP']
-stats_totals['Off_Eff'] = (100 * ((stats_totals['Points']) / (stats_totals['Off_Possessions']))).fillna(0)
-stats_totals['Def_Eff'] = (100 * ((stats_totals['Points_OPP']) / (stats_totals['Off_Possessions_OPP']))).fillna(0)
-
-
-
-stats_totals['Reb_Plus_Minus'] = (stats_totals['Rebounds'] - stats_totals['Rebounds_OPP'])
-
-stats_totals = stats_totals[['Players','Games','Minutes','Off_Possessions','Plus_Minus','Off_Eff','Def_Eff','Reb_Plus_Minus']]
-# stats_totals = stats_totals.drop(columns=['Points','Assists',
-#                                           'Rebounds','Rebounds_OPP',
-#                                           'Off_Possessions_OPP','Points_OPP','Assists_OPP',
-#                                           'Points_Total','Points_Total_OPP','Score_Difference',
-#                                           'Half'])
-
-stats_totals = stats_totals.sort_values(['Minutes'],ascending=[False])
-
-cm = sns.light_palette('#462e88', as_cmap=True)
-
-stats_totals_style = stats_totals.style.background_gradient(cmap=cm).set_precision(0)
-
-
-st.dataframe(stats_totals_style,hide_index=True) #,height=700
-# st.dataframe(stats_totals)
-
-
-# st_mui_table(stats_totals,key="table2")
-
-
-# import pandas as pd
-# import streamlit as st
-# from st_aggrid import JsCode, AgGrid, GridOptionsBuilder
-
-# df=pd.DataFrame([{"orgHierarchy": 'A', "jobTitle": "CEO", "employmentType": "Permanent" },
-#     { "orgHierarchy": 'A/B', "jobTitle": "VP", "employmentType": "Permanent" }])
-# st.write(df)
-# gb = GridOptionsBuilder.from_dataframe(df)
-# gridOptions = gb.build()
-
-
-# gridOptions["columnDefs"]= [
-#     { "field": 'jobTitle' },
-#     { "field": 'employmentType' },
-# ]
-# gridOptions["defaultColDef"]={
-#       "flex": 1,
-#     },
-# gridOptions["autoGroupColumnDef"]= {
-#     "headerName": 'Organisation Hierarchy',
-#     "minWidth": 300,
-#     "cellRendererParams": {
-#       "suppressCount": True,
-#     },
-#   },
-# gridOptions["treeData"]=True
-# gridOptions["animateRows"]=True
-# gridOptions["groupDefaultExpanded"]= -1
-# gridOptions["getDataPath"]=JsCode(""" function(data){
-#     return data.orgHierarchy.split("/");
-#   }""").js_code
-
-# r = AgGrid(
-#     df,
-#     gridOptions=gridOptions,
-#     height=500,
-#     allow_unsafe_jscode=True,
-#     enable_enterprise_modules=True,
-#     filter=True,
-#     update_mode=GridUpdateMode.SELECTION_CHANGED,
-#     theme="material",
-#     tree_data=True
-# )
-
-
-
-
-
-# # import streamlit as st
-# # from streamlit_modal import Modal
-# # import streamlit.components.v1 as components
-# # import pandas as pd
-# # import numpy as np
-# # import random
-
-# # # import requests
-# # # from bs4 import BeautifulSoup
-# # import warnings
-# # warnings.filterwarnings('ignore')
-# # from datetime import timedelta
-
-
-# # # st.title('UWW Mens Basketball Data')
-# # st.set_page_config(layout="wide")#, title='UWW Mens Basketball Data')
-
-
-# # def dataframe_with_selections(df):
-# #     df_with_selections = df.copy()
-# #     df_with_selections.insert(0, "Select", False)
-
-# #     # Get dataframe row-selections from user with st.data_editor
-# #     edited_df = st.data_editor(
-# #         df_with_selections,
-# #         hide_index=True,
-# #         column_config={"Select": st.column_config.CheckboxColumn(required=True)},
-# #         disabled=df.columns, 
-# #     )
-
-# #     # Filter the dataframe using the temporary column, then drop the column
-# #     selected_rows = edited_df[edited_df.Select]
-# #     return selected_rows.drop('Select', axis=1)
-
-
-
-# # stats = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_stats.csv?raw=true")
-# # stats['Date'] = pd.to_datetime(stats['Date'])
-# # stats['Opponent'] = stats['Opponent'] + ' (' + stats['Date'].astype(str) + ')'
-
-
-# # full = pd.read_csv("warhawks_lineups.csv")
-# # # full = pd.read_csv("https://github.com/fritschcm272/UWW_MensBBALL/blob/main/warhawks_lineups.csv?raw=true")
-# # full = full.sort_values(['UWW_LINEUP','Date'])
-# # full['Date'] = pd.to_datetime(full['Date'])
-# # full = full.sort_values('Date')
-# # full['Opponent'] = full['Opponent'] + ' (' + full['Date'].astype(str) + ')'
-
-# # games_list = full[['Opponent']]
-# # games_list = list(games_list['Opponent'].drop_duplicates())
-
-# # players_list = list(full['UWW_LINEUP'].str.split(';',expand=True).stack().reset_index()[0].drop_duplicates().sort_values())
-
-
-
-# # last3games = st.checkbox('Last 3 Games')
-
-# # if last3games:
-# #     games = st.multiselect("Choose Games", games_list, games_list[-3:])
-
-# # else:
-# #     games = st.multiselect("Choose Games", games_list)
-
-
-# # games_list_search = '|'.join(games)
-# # games_list_search = games_list_search.replace('(','').replace(')','') 
-
-# # players = st.multiselect(
-# #     "Choose Players", players_list, #["China", "United States of America"]
-# # )
-
-# # num_players = st.selectbox("Number of Players to Analyze", [1, 2, 3, 4, 5], 0)
-
-
-# # if not games:
+    # 2. Calculate Results for EXPLORER TABLE (LINEUP + Context)
+    kept_cols_explorer = group_dict_explorer + RATING_COLS
+    away_final_results_explorer = helpers.calculate_lineup_ratings(combined_df, AWAY_TEAM_NAME, HOME_TEAM_NAME, group_dict_explorer, agg_dict)
+    df = away_final_results_explorer.copy()
     
-# #     df = full
-    
-# # else:
-    
-# #     games_list_search = '|'.join(games)
-# #     games_list_search = games_list_search.replace(r"\(","")#.replace(r"\)","")
-# #     df = full[(full['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
-# #     stats = stats[(stats['Opponent'].str.replace('(','').str.replace(')','').str.contains(games_list_search))]
-    
-# # if not players:
-
-# #     df_l = df
-
-# # else:
-# #     if len(players)==1:
-# #         df_l = df[(df['UWW_LINEUP'].str.contains(players[0]))]
-# #     if len(players)==2:
-# #         df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))]
-# #     if len(players)==3:
-# #         df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))]
-# #     if len(players)==4:
-# #         df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))]
-# #     if len(players)==5:
-# #         df_l = df[(df['UWW_LINEUP'].str.contains(players[0])) & (df['UWW_LINEUP'].str.contains(players[1]))& (df['UWW_LINEUP'].str.contains(players[2]))& (df['UWW_LINEUP'].str.contains(players[3]))& (df['UWW_LINEUP'].str.contains(players[4]))]
-# #     if len(players)>=6:
-# #         st.error("Please only select up to five players.")
-# #         df_l = df
-# #     # st.write("### 5 Man Lineups")
-# #     # st.markdown(data.style.hide(axis="index").to_html(escape=False), unsafe_allow_html=True)
-    
-# # ########################################
-# # st.header('Players', divider='gray')
-# # df_p = df
-# # df_p = df_p.explode('UWW_LINEUP')
-# # df_p['UWW_LINEUP']=df_p['UWW_LINEUP'].str.split(';').fillna(df_p['UWW_LINEUP'])
-# # df_p=df_p.explode('UWW_LINEUP',ignore_index=True)
-
-# # ###
-# # players_list_search = '|'.join(players)
-# # df_p = df_p[(df_p['UWW_LINEUP'].str.contains(players_list_search))]
-# # ###
-
-# # df_p = df_p.groupby(['UWW_LINEUP','Opponent'], as_index=False).agg({
-# #                                                      # 'Opponent': 'nunique',
-# #                                                      'MinutesOnCourt': 'sum',
-# #                                                      'UWW_PLUS_MINUS': 'sum',
-# #                                                      # 'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
-# #                                                      'UWW_ASST_TURN': 'sum',
-# #                                                      'UWW_REBOUNDING': 'sum'
-# # })
-
-# # df_p['UWW_PLUS_MINUS_CUMSUM'] = df_p.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
-
-# # df_p = df_p.groupby(['UWW_LINEUP'], as_index=False).agg({
-# #                                                      'Opponent': 'nunique',
-# #                                                      'MinutesOnCourt': 'sum',
-# #                                                      'UWW_PLUS_MINUS': 'sum',
-# #                                                      'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
-# #                                                      'UWW_ASST_TURN': 'sum',
-# #                                                      'UWW_REBOUNDING': 'sum'})
-
-# # df_p = df_p.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
-
-
-# # stats = stats.groupby(['Play_Player'])[['Points','Field_Goals_Made',
-# #                                                                                  'Field_Goals_Missed','3P_Field_Goals_Made','3P_Field_Goals_Missed',
-# #                                                                                  'FT_Made','FT_Missed','Rebound_Off','Rebound_Def',
-# #                                                                                  'Rebound_Total', 'Assists', 'Turnovers']].sum().reset_index()
-
-# # # format(,".1%")
-# # stats['fgpercent'] = (stats['Field_Goals_Made'] / (stats['Field_Goals_Made'] + stats['Field_Goals_Missed']))*100
-# # stats['threeptpercent'] = (stats['3P_Field_Goals_Made'] / (stats['3P_Field_Goals_Made'] + stats['3P_Field_Goals_Missed']))*100
-# # stats['ftpercent'] = (stats['FT_Made'] / (stats['FT_Made'] + stats['FT_Missed']))*100
-
-# # # Merge in player stats table
-
-# # df_p = pd.merge(df_p,stats, how='left', left_on='UWW_LINEUP', right_on='Play_Player')
+    # 1. Context Column Filters 
+    if selected_context_cols and not df.empty:
+        # st.markdown("##### Filter by Grouping Column Values")
+        
+        # Use a container to manage filter layout
+        filter_container = st.container()
+        filter_cols = filter_container.columns(min(len(selected_context_cols), 3)) # Max 3 filters per row
+        
+        # Apply filters to the EXPLORER DataFrame
+        for i, col in enumerate(selected_context_cols):
+            if col in df.columns:
+                unique_values = sorted(df[col].unique().tolist())
                 
-                  
+                selected_values = filter_cols[i % 3].multiselect(
+                    f"Filter **{col}**:", 
+                    options=unique_values,
+                    default=unique_values, 
+                    key=f"filter_{col}"
+                )
                 
+                # Apply the filter to the DataFrame immediately
+                if selected_values and selected_values != unique_values:
+                    df = df[df[col].isin(selected_values)]
+    elif selected_context_cols and df.empty:
+        st.warning("No data found for the selected grouping options.")
 
-# # # df_p.insert(0, "Select", False)
-
-# # # df_p['Photo'] = "https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40"
-
-
-# # # col1, col2 = st.columns([3, 1])
-
-# # # with col1:
-
+    # 2. Player Filters (Only apply if grouping is LINEUP ONLY, which is signaled by no context columns)
     
-# # st.dataframe(
-# #     df_p[[
-# #           'UWW_LINEUP',
-# #           'Opponent',
-# #           'MinutesOnCourt',
-# #           'UWW_PLUS_MINUS',
-# #           'UWW_PLUS_MINUS_CUMSUM',
-# #           'UWW_ASST_TURN',
-# #           'UWW_REBOUNDING',
-# #           'Points',
-# #           'fgpercent',
-# #           'threeptpercent',
-# #           'ftpercent'
-# #          ]],
-# #     column_config={
-# #         # "Select": st.column_config.CheckboxColumn(required=True),
-# #         "UWW_LINEUP":"Player",
-# # #         "Photo": {st.write(321)},
-# # #         # "": st.column_config.ImageColumn("Photo", help="The user's avatar"),
-# # #         # "Photo":{"Player","Games"},
+    # Check if we are in the LINEUP ONLY aggregation case for player filtering purposes
+    is_lineup_only_aggregation = not selected_context_cols
+    
+    if 'LINEUP' in df.columns and is_lineup_only_aggregation:
+        # Determine if LINEUP is a list (unconverted)
+        is_lineup_list = not df.empty and isinstance(df['LINEUP'].iloc[0], list)
 
-# # #         # "Photo": st.image('https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40'),
-# #         "Opponent":"Games",
-# #         "MinutesOnCourt": "Minutes",
-# #         "UWW_PLUS_MINUS": "Current Points +/-",
-# #         "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
-# #             "Trending +/-", 
-# #             # y_min= 0,#min_pm, 
-# #             # y_max= max_pm
-# #         ),
-# #         "UWW_ASST_TURN": "Assist/Turnover",
-# #         "UWW_REBOUNDING": "Rebounding +/-",
-# #         "Points": "Points Scored",
-# #         "fgpercent": st.column_config.NumberColumn('FG %', format='%.1f %%'),
-# #         "threeptpercent": st.column_config.NumberColumn('3PT FG %', format='%.1f %%'),
-# #         "ftpercent": st.column_config.NumberColumn('FT %', format='%.1f %%')
+        if is_lineup_list: 
+            all_players = sorted(list(set(player for lineup in df_base_top['LINEUP'] for player in lineup))) 
+            
+            st.markdown("##### Filter by Player Inclusion/Exclusion")
+            col_inc, col_exc = st.columns(2)
+
+            with col_inc:
+                include_players = st.multiselect(
+                    "Lineups MUST **Include**:", 
+                    options=all_players,
+                    key="include_filter"
+                )
+            with col_exc:
+                exclude_players = st.multiselect(
+                    "Lineups MUST **Exclude**:", 
+                    options=all_players,
+                    key="exclude_filter"
+                )
+                
+            # Apply the inclusion/exclusion filters
+            if include_players:
+                df = df[df['LINEUP'].apply(lambda lineup: all(player in lineup for player in include_players))]
+
+            if exclude_players:
+                df = df[df['LINEUP'].apply(lambda lineup: not any(player in lineup for player in exclude_players))]
         
-# #     },
-# #     hide_index=True
-# # )
+    # Final step for the explorer table: Convert LINEUP to string and reorder
+    if 'LINEUP' in df.columns:
+        if not df.empty and isinstance(df['LINEUP'].iloc[0], list):
+            df['LINEUP'] = df['LINEUP'].apply(lambda x: ", ".join(x))
+            
+    df = reorder_lineup_first(df, group_dict_explorer)
 
-
-# # if len(players) == 1:
-# #     stats = stats[stats['Play_Player']==players[0]].reset_index()
-
-
-    
-
-
-
-# #     modal = Modal(
-# #         "Player Details", 
-# #         key="demo-modal",
-
-# #         # Optional
-# #         padding=20,    # default value
-# #         max_width=744  # default value
-# #     )
-
-# #     open_modal = st.button("Player Details")
-# #     if open_modal:
-# #         modal.open()
-
-# #     if modal.is_open():
-# #         with modal.container():
-
-# #     #         st.write("Text goes here")
-
-# #     #         html_string = '''
-# #     #         <h1>HTML string in RED</h1>
-
-# #     #         <script language="javascript">
-# #     #           document.querySelector("h1").style.color = "red";
-# #     #         </script>
-# #     #         '''
-# #     #         components.html(html_string)
-
-# #     #         st.write("Some fancy text")
-# #     #         value = st.checkbox("Check me")
-# #     #         st.write(f"Checkbox checked: {value}")
-
-
-
-
-# #             # st.header('Player Details', divider='gray')
-
-# #             col1, col2 = st.columns(2)
-
-# #             col1.image('https://uwwsports.com/images/2023/11/9/Miles_Barnstable.jpg?width=80&quality=90')
-# #             col2.text('Miles Barnstable')
-
-
-# #             col1, col2, col3 = st.columns(3)
-# #             col1.metric("Points", stats['Points'][0])# df_l_tot_pm)
-# #             col2.metric("FG %", stats['fgpercent'][0])
-# #             col3.metric("3PT %", stats['threeptpercent'][0])# df_l_tot_reb)
-
-# #             st.dataframe(stats)
-
-
-# # ########################################
-# # st.header('5 Man Lineups', divider='gray')
-# # if not games:
-# #     st.caption("Games: All")
-# # else:
-# #     st.caption("Games: "+','.join(games))
-# # if not players:
-# #     st.caption("Players: All")
-# # else:
-# #     st.caption("Players: "+'|'.join(players))
-
-
-
-
-
-# # df_l['UWW_PLUS_MINUS_CUMSUM'] = df_l.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
-# # min_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].min()
-# # max_pm = df_l['UWW_PLUS_MINUS_CUMSUM'].max()
-# # df_l['UWW_LINEUP'] = df_l['UWW_LINEUP'].replace(';',' ; ', regex=True)
-# # # df['UWW_LINEUP_PICS'] = df['UWW_LINEUP'].replace('*BARKER,JAMEER*', 'https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40', regex=True)
-# # # replace("BARKER,JAMEER",'https://uwwsports.com/images/2023/11/9/Jameer_Barker.jpg?width=40')
-# # df_l['Opponent'] = df_l['Opponent'] + ' (' + df_l['Date'].astype(str) + ')'
-# # df_l = df_l.drop(columns=['Date'])
-# # df_l = df_l.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
-# #                                                      'MinutesOnCourt': 'sum',
-# #                                                      'UWW_PLUS_MINUS': 'sum',
-# #                                                      'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
-# #                                                      'UWW_ASST_TURN': 'sum',
-# #                                                      'UWW_REBOUNDING': 'sum',
-# #                                                      'UWW_FG_MADE': 'sum',
-# #                                                      'UWW_FG_MISS': 'sum',
-# #                                                      'UWW_GOOD 3PTR': 'sum',
-# #                                                      'UWW_MISS 3PTR': 'sum',
-# #                                                      'UWW_GOOD FT':'sum',
-# #                                                      'UWW_MISS FT':'sum'})
-
-
-
-
-# # df_l['fgpercent'] = (df_l['UWW_FG_MADE'] / (df_l['UWW_FG_MADE'] + df_l['UWW_FG_MISS']))*100
-# # df_l['threeptpercent'] = (df_l['UWW_GOOD 3PTR'] / (df_l['UWW_GOOD 3PTR'] + df_l['UWW_MISS 3PTR']))*100
-# # df_l['ftpercent'] = (df_l['UWW_GOOD FT'] / (df_l['UWW_GOOD FT'] + df_l['UWW_MISS FT']))*100
-
-# # df_l = df_l.drop(columns=['UWW_FG_MADE',
-# #                                                      'UWW_FG_MISS',
-# #                                                      'UWW_GOOD 3PTR',
-# #                                                      'UWW_MISS 3PTR',
-# #                                                      'UWW_GOOD FT',
-# #                                                      'UWW_MISS FT'])
-
-# # df_l = df_l.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
-
-
-
-# # df_l_tot_moc = round(df_l['MinutesOnCourt'].sum(),2)
-# # df_l_tot_pm = df_l['UWW_PLUS_MINUS'].sum()
-# # df_l_tot_at = df_l['UWW_ASST_TURN'].sum()                      
-# # df_l_tot_reb = df_l['UWW_REBOUNDING'].sum()
-
-
-
-
-# # col1, col2, col3, col4 = st.columns(4)
-# # col1.metric("Minutes", df_l_tot_moc) #col1.metric("Minutes", "70 °F", "1.2 °F")
-# # col2.metric("Points +/-", df_l_tot_pm)
-# # col3.metric("A/T Ratio", df_l_tot_at)
-# # col4.metric("Reb +/-", df_l_tot_reb)
-
-
-# # st.dataframe(
-# #     df_l,
-# #     column_config={
-# #         "UWW_LINEUP":"Lineup",
-# #         "Opponent":"Games",
-# #         "MinutesOnCourt": "Minutes",
-# #         "UWW_PLUS_MINUS": "Current Points +/-",
-# #         "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
-# #             "Trending +/-", 
-# #             # y_min= 0,#min_pm, 
-# #             # y_max= max_pm
-# #         ),
-# #         "UWW_ASST_TURN": "Assist/Turnover",
-# #         "UWW_REBOUNDING": "Rebounding +/-",
-# #         # "Points": "Points Scored",
-# #         "fgpercent": st.column_config.NumberColumn('FG %', format='%.1f %%'),
-# #         "threeptpercent": st.column_config.NumberColumn('3PT FG %', format='%.1f %%'),
-# #         "ftpercent": st.column_config.NumberColumn('FT %', format='%.1f %%')
+    # 3. Numeric Filters (Use the filtered DF for range determination)
+    if not df.empty:
+        df_temp = df.copy() 
+        pos_min_df, pos_max_df = int(df_temp['POSSESSIONS'].min()), int(df_temp['POSSESSIONS'].max())
+        pm_min_df, pm_max_df = int(df_temp['Plus/Minus'].min()), int(df_temp['Plus/Minus'].max())
+        nr_min_df, nr_max_df = float(df_temp['Net Rating'].min()), float(df_temp['Net Rating'].max())
         
-# #     },
-# #     hide_index=True
-# # )
+        # Base ranges remain constant across all filters, based on the explorer data
+        pos_min_base, pos_max_base = int(away_final_results_explorer['POSSESSIONS'].min()), int(away_final_results_explorer['POSSESSIONS'].max())
+        pm_min_base, pm_max_base = int(away_final_results_explorer['Plus/Minus'].min()), int(away_final_results_explorer['Plus/Minus'].max())
+        nr_min_base, nr_max_base = float(away_final_results_explorer['Net Rating'].min()), float(away_final_results_explorer['Net Rating'].max())
 
+        st.markdown("##### Filter by Metric Range")
+        col_pos_slider, col_pm_slider, col_nr_slider = st.columns(3)
 
-
-
-
-
-# # ########################################
-# # st.header('Player Comparison', divider='gray')
-# # if len(players)==2:
-# #     df_comp_1 = df[(df['UWW_LINEUP'].str.contains(players[0])) & (~df['UWW_LINEUP'].str.contains(players[1]))]
-# #     df_comp_2 = df[(df['UWW_LINEUP'].str.contains(players[1])) & (~df['UWW_LINEUP'].str.contains(players[0]))]
-    
-# #     if not games:
-# #         st.caption("Games: All")
-# #     else:
-# #         st.caption("Games: "+','.join(games))
-# #     if not players:
-# #         st.caption("Players: All")
-# #     else:
-# #         st.caption("Players: "+'|'.join(players))
+        with col_pos_slider:
+            min_possessions, max_possessions = st.slider(
+                "Possessions range:",
+                pos_min_base, pos_max_base, (pos_min_df, pos_max_df), key="pos_slider"
+            )
+            df = df[(df['POSSESSIONS'] >= min_possessions) & (df['POSSESSIONS'] <= max_possessions)]
         
-# #     df_comp_1['UWW_PLUS_MINUS_CUMSUM'] = df_comp_1.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
-# #     min_pm = df_comp_1['UWW_PLUS_MINUS_CUMSUM'].min()
-# #     max_pm = df_comp_1['UWW_PLUS_MINUS_CUMSUM'].max()
-# #     df_comp_1['UWW_LINEUP'] = df_comp_1['UWW_LINEUP'].replace(';',' ; ', regex=True)
-# #     df_comp_1['Opponent'] = df_comp_1['Opponent'] + ' (' + df_comp_1['Date'].astype(str) + ')'
-# #     df_comp_1 = df_comp_1.drop(columns=['Date'])
-# #     df_comp_1 = df_comp_1.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
-# #                                                          'MinutesOnCourt': 'sum',
-# #                                                          'UWW_PLUS_MINUS': 'sum',
-# #                                                          'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
-# #                                                          'UWW_ASST_TURN': 'sum',
-# #                                                          'UWW_REBOUNDING': 'sum'})
-# #     df_comp_1 = df_comp_1.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
+        with col_pm_slider:
+            min_plus_minus, max_plus_minus = st.slider(
+                "Plus/Minus range:",
+                pm_min_base, pm_max_base, (pm_min_df, pm_max_df), key="pm_slider"
+            )
+            df = df[(df['Plus/Minus'] >= min_plus_minus) & (df['Plus/Minus'] <= max_plus_minus)]
 
-# #     df_comp_1_tot_moc = round(df_comp_1['MinutesOnCourt'].sum(),2)
-# #     df_comp_1_tot_pm = df_comp_1['UWW_PLUS_MINUS'].sum()
-# #     df_comp_1_tot_at = df_comp_1['UWW_ASST_TURN'].sum()                      
-# #     df_comp_1_tot_reb = df_comp_1['UWW_REBOUNDING'].sum()
+        with col_nr_slider:
+            min_net_rating, max_net_rating = st.slider(
+                "Net Rating range:",
+                float(nr_min_base), float(nr_max_base), (float(nr_min_df), float(nr_max_df)), 
+                step=0.1, 
+                key="nr_slider"
+            )
+            df = df[(df['Net Rating'] >= min_net_rating) & (df['Net Rating'] <= max_net_rating)]
 
+        # Apply formatting to the main table for better readability
+        st.dataframe(df.style.format({
+            'Offensive Rating': '{:.1f}', 
+            'Defensive Rating': '{:.1f}', 
+            'Net Rating': '{:.1f}',
+            'POSSESSIONS': '{:,}'
+        }), use_container_width=True, hide_index=True)
 
-# #     col1, col2, col3, col4, col5 = st.columns(5)
-# #     col1.caption(players[0] + " without " + players[1])
-# #     col2.metric("Minutes", df_comp_1_tot_moc) #col1.metric("Minutes", "70 °F", "1.2 °F")
-# #     col3.metric("Points +/-", df_comp_1_tot_pm)
-# #     col4.metric("A/T Ratio", df_comp_1_tot_at)
-# #     col5.metric("Reb +/-", df_comp_1_tot_reb)
-    
-    
-# #     df_comp_2['UWW_PLUS_MINUS_CUMSUM'] = df_comp_2.groupby('UWW_LINEUP')['UWW_PLUS_MINUS'].cumsum()
-# #     min_pm = df_comp_2['UWW_PLUS_MINUS_CUMSUM'].min()
-# #     max_pm = df_comp_2['UWW_PLUS_MINUS_CUMSUM'].max()
-# #     df_comp_2['UWW_LINEUP'] = df_comp_2['UWW_LINEUP'].replace(';',' ; ', regex=True)
-# #     df_comp_2['Opponent'] = df_comp_2['Opponent'] + ' (' + df_comp_2['Date'].astype(str) + ')'
-# #     df_comp_2 = df_comp_2.drop(columns=['Date'])
-# #     df_comp_2 = df_comp_2.groupby(['UWW_LINEUP'], as_index=False).agg({'Opponent': 'count',
-# #                                                          'MinutesOnCourt': 'sum',
-# #                                                          'UWW_PLUS_MINUS': 'sum',
-# #                                                          'UWW_PLUS_MINUS_CUMSUM':lambda x: list(x),
-# #                                                          'UWW_ASST_TURN': 'sum',
-# #                                                          'UWW_REBOUNDING': 'sum'})
-# #     df_comp_2 = df_comp_2.sort_values(['UWW_PLUS_MINUS','MinutesOnCourt'],ascending=[False,False])
-
-# #     df_comp_2_tot_moc = round(df_comp_2['MinutesOnCourt'].sum(),2)
-# #     df_comp_2_tot_pm = df_comp_2['UWW_PLUS_MINUS'].sum()
-# #     df_comp_2_tot_at = df_comp_2['UWW_ASST_TURN'].sum()                      
-# #     df_comp_2_tot_reb = df_comp_2['UWW_REBOUNDING'].sum()
-
-
-# #     col1, col2, col3, col4, col5 = st.columns(5)
-# #     col1.caption(players[1] + " without " + players[0])
-# #     col2.metric("Minutes", df_comp_2_tot_moc) #col1.metric("Minutes", "70 °F", "1.2 °F")
-# #     col3.metric("Points +/-", df_comp_2_tot_pm)
-# #     col4.metric("A/T Ratio", df_comp_2_tot_at)
-# #     col5.metric("Reb +/-", df_comp_2_tot_reb)
-
-# # #     st.dataframe(
-# # #         df_comp_1,
-# # #         column_config={
-# # #             "Opponent":"Games",
-# # #             "MinutesOnCourt": "Minutes",
-# # #             "UWW_PLUS_MINUS": "Current Points +/-",
-# # #             "UWW_PLUS_MINUS_CUMSUM": st.column_config.LineChartColumn(
-# # #                 "Trending +/-", 
-# # #                 # y_min= 0,#min_pm, 
-# # #                 # y_max= max_pm
-# # #             ),
-# # #             "UWW_ASST_TURN": "Assist/Turnover",
-# # #             "UWW_REBOUNDING": "Rebounding +/-"
-# # #         },
-# # #         hide_index=True
-# # #     )
-
-# # else:
-# #     st.subheader('_Available when 2 players are selected_')
-
-
-
+        # Download CSV
+        csv_bytes = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️ Download filtered data as CSV",
+            data=csv_bytes,
+            file_name=f"{AWAY_TEAM_NAME}_lineup_analysis.csv",
+            mime="text/csv"
+        )
+    else:
+        st.warning("No lineups match the current filter settings.")
+        
+    # Download full PDF report (uses the LINEUP ONLY results)
+    pdf_bytes = generate_pdf_report(AWAY_TEAM_NAME, top_possessions_list, top_plus_minus_list, top_net_rating_list)
+    st.download_button(
+        label="📄 Download full report as PDF",
+        data=pdf_bytes,
+        file_name=f"{AWAY_TEAM_NAME}_lineup_report.pdf",
+        mime="application/pdf"
+    )
