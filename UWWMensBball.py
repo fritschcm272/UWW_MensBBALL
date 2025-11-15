@@ -24,7 +24,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 # Get the directory of the current script
 script_dir = os.path.dirname(__file__)
-print(script_dir)
+st.caption(script_dir)
+
 
 # Construct the relative path to the CSV file
 csv_files = os.path.join(script_dir, 'Game_Data', '*.csv')
