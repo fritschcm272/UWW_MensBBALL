@@ -9,78 +9,8 @@ from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
 
+combined_df = helpers.load_data_from_game_data()
 
-
-# --- Configuration ---
-# Assuming your CSV folder is named 'csv_data' and is in the same directory as the script.
-folder_name = 'Game_Data' 
-# Get the current working directory (where the script is located)
-current_dir = os.getcwd() 
-# Create the full path to the folder
-path = os.path.join(current_dir, folder_name)
-
-# Use glob to find all files ending with .csv in the specified path
-all_files = glob.glob(os.path.join(path, "*.csv"))
-
-# --- Loading and Concatenating Data ---
-
-# Create a list to hold the individual DataFrames
-df_list = []
-
-print(f"--- Loading CSVs from: {path} ---")
-
-# Loop through the list of file paths
-for filename in all_files:
-    # Read the file into a pandas DataFrame
-    try:
-        df = pd.read_csv(filename, index_col=None, header=0)
-        df_list.append(df)
-        print(f"Loaded: {os.path.basename(filename)}")
-    except Exception as e:
-        print(f"Error loading {os.path.basename(filename)}: {e}")
-
-# Concatenate all DataFrames in the list into one single DataFrame
-if df_list:
-    combined_df = pd.concat(df_list, axis=0, ignore_index=True)
-    
-    print("\n--- Combined DataFrame Info ---")
-    print(combined_df.info())
-    print("\n--- First 5 rows of Combined Data ---")
-    print(combined_df.head())
-else:
-    print("\nNo CSV files found or loaded.")
-
-
-# --- 1. Data Loading and Aggregation ---
-
-# # Specify the path to the directory containing your CSV files
-# csv_directory_path = 'Game_Data\\'
-
-# # Use glob to find all files ending with .csv in the specified directory
-# csv_files = glob.glob(os.path.join(csv_directory_path, "*.csv"))
-
-
-
-# # Construct the relative path to the CSV file
-# csv_files = os.path.join(script_dir, 'Game_Data', '*.csv')
-# print(csv_files)
-
-# # Initialize an empty list to store the DataFrames
-# list_of_dfs = []
-
-# # Loop through files to read them into the list
-# for file_path in csv_files:
-#     try:
-#         df = pd.read_csv(file_path)
-#         list_of_dfs.append(df)
-#     except Exception as e:
-#         print(f"Error reading {file_path}: {e}")
-        
-# # Combine all DataFrames
-# if list_of_dfs:
-#     combined_df = pd.concat(list_of_dfs, ignore_index=True)
-# else:
-#     combined_df = pd.DataFrame()
 
 # Define ALL potential columns for grouping based on your provided scouted roles
 ALL_GROUPING_COLS = [
@@ -105,7 +35,8 @@ agg_dict = {
         'DURATION_SECONDS': 'sum',
         'AWAY_POINTS': 'sum',
         'HOME_POINTS': 'sum',
-        'IS_END_OF_POSSESSION': 'sum'
+        'IS_END_OF_POSSESSION': 'sum',
+        'GAME_ID': 'nunique'
     }
 
 AWAY_TEAM_NAME = "Wis.-Whitewater"
@@ -286,153 +217,177 @@ if not df_base_top.empty:
     # # Start with the explorer DataFrame
     # df = away_final_results_explorer.copy() 
 
+    ALL_GAME_IDS = sorted(combined_df['GAME_ID'].unique().tolist())
 
-    
-    # Multiselect for additional grouping columns
-    selected_context_cols = st.multiselect(
-        "Group By Number of Opponent's Player Type on Court:",
-        options=ALL_GROUPING_COLS,
-        default=[]
-    )
-
-    # Dynamically set group_dict for the EXPLORER TABLE
-    group_dict_explorer = ['LINEUP'] + selected_context_cols
-
-    # 2. Calculate Results for EXPLORER TABLE (LINEUP + Context)
-    kept_cols_explorer = group_dict_explorer + RATING_COLS
-    away_final_results_explorer = helpers.calculate_lineup_ratings(combined_df, AWAY_TEAM_NAME, HOME_TEAM_NAME, group_dict_explorer, agg_dict)
-    df = away_final_results_explorer.copy()
-    
-    # 1. Context Column Filters 
-    if selected_context_cols and not df.empty:
-        # st.markdown("##### Filter by Grouping Column Values")
-        
-        # Use a container to manage filter layout
-        filter_container = st.container()
-        filter_cols = filter_container.columns(min(len(selected_context_cols), 3)) # Max 3 filters per row
-        
-        # Apply filters to the EXPLORER DataFrame
-        for i, col in enumerate(selected_context_cols):
-            if col in df.columns:
-                unique_values = sorted(df[col].unique().tolist())
-                
-                selected_values = filter_cols[i % 3].multiselect(
-                    f"Filter **{col}**:", 
-                    options=unique_values,
-                    default=unique_values, 
-                    key=f"filter_{col}"
-                )
-                
-                # Apply the filter to the DataFrame immediately
-                if selected_values and selected_values != unique_values:
-                    df = df[df[col].isin(selected_values)]
-    elif selected_context_cols and df.empty:
-        st.warning("No data found for the selected grouping options.")
-
-    # 2. Player Filters (Only apply if grouping is LINEUP ONLY, which is signaled by no context columns)
-    
-    # Check if we are in the LINEUP ONLY aggregation case for player filtering purposes
-    is_lineup_only_aggregation = not selected_context_cols
-    
-    if 'LINEUP' in df.columns and is_lineup_only_aggregation:
-        # Determine if LINEUP is a list (unconverted)
-        is_lineup_list = not df.empty and isinstance(df['LINEUP'].iloc[0], list)
-
-        if is_lineup_list: 
-            all_players = sorted(list(set(player for lineup in df_base_top['LINEUP'] for player in lineup))) 
-            
-            st.markdown("##### Filter by Player Inclusion/Exclusion")
-            col_inc, col_exc = st.columns(2)
-
-            with col_inc:
-                include_players = st.multiselect(
-                    "Lineups MUST **Include**:", 
-                    options=all_players,
-                    key="include_filter"
-                )
-            with col_exc:
-                exclude_players = st.multiselect(
-                    "Lineups MUST **Exclude**:", 
-                    options=all_players,
-                    key="exclude_filter"
-                )
-                
-            # Apply the inclusion/exclusion filters
-            if include_players:
-                df = df[df['LINEUP'].apply(lambda lineup: all(player in lineup for player in include_players))]
-
-            if exclude_players:
-                df = df[df['LINEUP'].apply(lambda lineup: not any(player in lineup for player in exclude_players))]
-        
-    # Final step for the explorer table: Convert LINEUP to string and reorder
-    if 'LINEUP' in df.columns:
-        if not df.empty and isinstance(df['LINEUP'].iloc[0], list):
-            df['LINEUP'] = df['LINEUP'].apply(lambda x: ", ".join(x))
-            
-    df = reorder_lineup_first(df, group_dict_explorer)
-
-    # 3. Numeric Filters (Use the filtered DF for range determination)
-    if not df.empty:
-        df_temp = df.copy() 
-        pos_min_df, pos_max_df = int(df_temp['POSSESSIONS'].min()), int(df_temp['POSSESSIONS'].max())
-        pm_min_df, pm_max_df = int(df_temp['Plus/Minus'].min()), int(df_temp['Plus/Minus'].max())
-        nr_min_df, nr_max_df = float(df_temp['Net Rating'].min()), float(df_temp['Net Rating'].max())
-        
-        # Base ranges remain constant across all filters, based on the explorer data
-        pos_min_base, pos_max_base = int(away_final_results_explorer['POSSESSIONS'].min()), int(away_final_results_explorer['POSSESSIONS'].max())
-        pm_min_base, pm_max_base = int(away_final_results_explorer['Plus/Minus'].min()), int(away_final_results_explorer['Plus/Minus'].max())
-        nr_min_base, nr_max_base = float(away_final_results_explorer['Net Rating'].min()), float(away_final_results_explorer['Net Rating'].max())
-
-        st.markdown("##### Filter by Metric Range")
-        col_pos_slider, col_pm_slider, col_nr_slider = st.columns(3)
-
-        with col_pos_slider:
-            min_possessions, max_possessions = st.slider(
-                "Possessions range:",
-                pos_min_base, pos_max_base, (pos_min_df, pos_max_df), key="pos_slider"
-            )
-            df = df[(df['POSSESSIONS'] >= min_possessions) & (df['POSSESSIONS'] <= max_possessions)]
-        
-        with col_pm_slider:
-            min_plus_minus, max_plus_minus = st.slider(
-                "Plus/Minus range:",
-                pm_min_base, pm_max_base, (pm_min_df, pm_max_df), key="pm_slider"
-            )
-            df = df[(df['Plus/Minus'] >= min_plus_minus) & (df['Plus/Minus'] <= max_plus_minus)]
-
-        with col_nr_slider:
-            min_net_rating, max_net_rating = st.slider(
-                "Net Rating range:",
-                float(nr_min_base), float(nr_max_base), (float(nr_min_df), float(nr_max_df)), 
-                step=0.1, 
-                key="nr_slider"
-            )
-            df = df[(df['Net Rating'] >= min_net_rating) & (df['Net Rating'] <= max_net_rating)]
-
-        # Apply formatting to the main table for better readability
-        st.dataframe(df.style.format({
-            'Offensive Rating': '{:.1f}', 
-            'Defensive Rating': '{:.1f}', 
-            'Net Rating': '{:.1f}',
-            'POSSESSIONS': '{:,}'
-        }), use_container_width=True, hide_index=True)
-
-        # Download CSV
-        csv_bytes = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="⬇️ Download filtered data as CSV",
-            data=csv_bytes,
-            file_name=f"{AWAY_TEAM_NAME}_lineup_analysis.csv",
-            mime="text/csv"
+    # 📌 NEW: Add Game Selection Filter
+    if ALL_GAME_IDS:
+        selected_games = st.multiselect(
+            "Filter by Game(s):",
+            options=ALL_GAME_IDS,
+            default=ALL_GAME_IDS,
+            key="game_filter"
         )
+        # 📌 NEW: Filter the combined_df based on game selection
+        filtered_combined_df = combined_df[combined_df['GAME_ID'].isin(selected_games)]
     else:
-        st.warning("No lineups match the current filter settings.")
+        # Fallback if no game IDs are found
+        filtered_combined_df = combined_df
+    
+    if filtered_combined_df.empty:
+        st.warning("No data available for the selected game(s).")
+        # Skip calculations if data is empty
+        away_final_results_explorer = pd.DataFrame() 
+        df = pd.DataFrame() # Ensure df is empty
+    else:
+        # ... (rest of the code moves into the ELSE block) ...
+    
+        # Multiselect for additional grouping columns
+        selected_context_cols = st.multiselect(
+            "Group By Number of Opponent's Player Type on Court:",
+            options=ALL_GROUPING_COLS,
+            default=[]
+        )
+    
+        # Dynamically set group_dict for the EXPLORER TABLE
+        group_dict_explorer = ['LINEUP'] + selected_context_cols
+    
+        # 2. Calculate Results for EXPLORER TABLE (LINEUP + Context)
+        kept_cols_explorer = group_dict_explorer + RATING_COLS
+        # 📌 IMPORTANT: Use the filtered_combined_df here!
+
+        away_final_results_explorer = helpers.calculate_lineup_ratings(filtered_combined_df, AWAY_TEAM_NAME, HOME_TEAM_NAME, group_dict_explorer, agg_dict)
+        df = away_final_results_explorer.copy()
         
-    # Download full PDF report (uses the LINEUP ONLY results)
-    pdf_bytes = generate_pdf_report(AWAY_TEAM_NAME, top_possessions_list, top_plus_minus_list, top_net_rating_list)
-    st.download_button(
-        label="📄 Download full report as PDF",
-        data=pdf_bytes,
-        file_name=f"{AWAY_TEAM_NAME}_lineup_report.pdf",
-        mime="application/pdf"
-    )
+        # 1. Context Column Filters 
+        if selected_context_cols and not df.empty:
+            # st.markdown("##### Filter by Grouping Column Values")
+            
+            # Use a container to manage filter layout
+            filter_container = st.container()
+            filter_cols = filter_container.columns(min(len(selected_context_cols), 3)) # Max 3 filters per row
+            
+            # Apply filters to the EXPLORER DataFrame
+            for i, col in enumerate(selected_context_cols):
+                if col in df.columns:
+                    unique_values = sorted(df[col].unique().tolist())
+                    
+                    selected_values = filter_cols[i % 3].multiselect(
+                        f"Filter **{col}**:", 
+                        options=unique_values,
+                        default=unique_values, 
+                        key=f"filter_{col}"
+                    )
+                    
+                    # Apply the filter to the DataFrame immediately
+                    if selected_values and selected_values != unique_values:
+                        df = df[df[col].isin(selected_values)]
+        elif selected_context_cols and df.empty:
+            st.warning("No data found for the selected grouping options.")
+    
+        # 2. Player Filters (Only apply if grouping is LINEUP ONLY, which is signaled by no context columns)
+        
+        # Check if we are in the LINEUP ONLY aggregation case for player filtering purposes
+        is_lineup_only_aggregation = not selected_context_cols
+        
+        if 'LINEUP' in df.columns and is_lineup_only_aggregation:
+            # Determine if LINEUP is a list (unconverted)
+            is_lineup_list = not df.empty and isinstance(df['LINEUP'].iloc[0], list)
+    
+            if is_lineup_list: 
+                all_players = sorted(list(set(player for lineup in df_base_top['LINEUP'] for player in lineup))) 
+                
+                st.markdown("##### Filter by Player Inclusion/Exclusion")
+                col_inc, col_exc = st.columns(2)
+    
+                with col_inc:
+                    include_players = st.multiselect(
+                        "Lineups MUST **Include**:", 
+                        options=all_players,
+                        key="include_filter"
+                    )
+                with col_exc:
+                    exclude_players = st.multiselect(
+                        "Lineups MUST **Exclude**:", 
+                        options=all_players,
+                        key="exclude_filter"
+                    )
+                    
+                # Apply the inclusion/exclusion filters
+                if include_players:
+                    df = df[df['LINEUP'].apply(lambda lineup: all(player in lineup for player in include_players))]
+    
+                if exclude_players:
+                    df = df[df['LINEUP'].apply(lambda lineup: not any(player in lineup for player in exclude_players))]
+            
+        # Final step for the explorer table: Convert LINEUP to string and reorder
+        if 'LINEUP' in df.columns:
+            if not df.empty and isinstance(df['LINEUP'].iloc[0], list):
+                df['LINEUP'] = df['LINEUP'].apply(lambda x: ", ".join(x))
+                
+        df = reorder_lineup_first(df, group_dict_explorer)
+    
+        # 3. Numeric Filters (Use the filtered DF for range determination)
+        if not df.empty:
+            df_temp = df.copy() 
+            pos_min_df, pos_max_df = int(df_temp['POSSESSIONS'].min()), int(df_temp['POSSESSIONS'].max())
+            pm_min_df, pm_max_df = int(df_temp['Plus/Minus'].min()), int(df_temp['Plus/Minus'].max())
+            nr_min_df, nr_max_df = float(df_temp['Net Rating'].min()), float(df_temp['Net Rating'].max())
+            
+            # Base ranges remain constant across all filters, based on the explorer data
+            pos_min_base, pos_max_base = int(away_final_results_explorer['POSSESSIONS'].min()), int(away_final_results_explorer['POSSESSIONS'].max())
+            pm_min_base, pm_max_base = int(away_final_results_explorer['Plus/Minus'].min()), int(away_final_results_explorer['Plus/Minus'].max())
+            nr_min_base, nr_max_base = float(away_final_results_explorer['Net Rating'].min()), float(away_final_results_explorer['Net Rating'].max())
+    
+            st.markdown("##### Filter by Metric Range")
+            col_pos_slider, col_pm_slider, col_nr_slider = st.columns(3)
+    
+            with col_pos_slider:
+                min_possessions, max_possessions = st.slider(
+                    "Possessions range:",
+                    pos_min_base, pos_max_base, (pos_min_df, pos_max_df), key="pos_slider"
+                )
+                df = df[(df['POSSESSIONS'] >= min_possessions) & (df['POSSESSIONS'] <= max_possessions)]
+            
+            with col_pm_slider:
+                min_plus_minus, max_plus_minus = st.slider(
+                    "Plus/Minus range:",
+                    pm_min_base, pm_max_base, (pm_min_df, pm_max_df), key="pm_slider"
+                )
+                df = df[(df['Plus/Minus'] >= min_plus_minus) & (df['Plus/Minus'] <= max_plus_minus)]
+    
+            with col_nr_slider:
+                min_net_rating, max_net_rating = st.slider(
+                    "Net Rating range:",
+                    float(nr_min_base), float(nr_max_base), (float(nr_min_df), float(nr_max_df)), 
+                    step=0.1, 
+                    key="nr_slider"
+                )
+                df = df[(df['Net Rating'] >= min_net_rating) & (df['Net Rating'] <= max_net_rating)]
+    
+            # Apply formatting to the main table for better readability
+            st.dataframe(df.style.format({
+                'Offensive Rating': '{:.1f}', 
+                'Defensive Rating': '{:.1f}', 
+                'Net Rating': '{:.1f}',
+                'POSSESSIONS': '{:,}'
+            }), use_container_width=True, hide_index=True)
+    
+            # Download CSV
+            csv_bytes = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="⬇️ Download filtered data as CSV",
+                data=csv_bytes,
+                file_name=f"{AWAY_TEAM_NAME}_lineup_analysis.csv",
+                mime="text/csv"
+            )
+        else:
+            st.warning("No lineups match the current filter settings.")
+            
+        # Download full PDF report (uses the LINEUP ONLY results)
+        pdf_bytes = generate_pdf_report(AWAY_TEAM_NAME, top_possessions_list, top_plus_minus_list, top_net_rating_list)
+        st.download_button(
+            label="📄 Download full report as PDF",
+            data=pdf_bytes,
+            file_name=f"{AWAY_TEAM_NAME}_lineup_report.pdf",
+            mime="application/pdf"
+        )
