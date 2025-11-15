@@ -65,22 +65,22 @@ else:
 # csv_files = os.path.join(script_dir, 'Game_Data', '*.csv')
 # print(csv_files)
 
-# Initialize an empty list to store the DataFrames
-list_of_dfs = []
+# # Initialize an empty list to store the DataFrames
+# list_of_dfs = []
 
-# Loop through files to read them into the list
-for file_path in csv_files:
-    try:
-        df = pd.read_csv(file_path)
-        list_of_dfs.append(df)
-    except Exception as e:
-        print(f"Error reading {file_path}: {e}")
+# # Loop through files to read them into the list
+# for file_path in csv_files:
+#     try:
+#         df = pd.read_csv(file_path)
+#         list_of_dfs.append(df)
+#     except Exception as e:
+#         print(f"Error reading {file_path}: {e}")
         
-# Combine all DataFrames
-if list_of_dfs:
-    combined_df = pd.concat(list_of_dfs, ignore_index=True)
-else:
-    combined_df = pd.DataFrame()
+# # Combine all DataFrames
+# if list_of_dfs:
+#     combined_df = pd.concat(list_of_dfs, ignore_index=True)
+# else:
+#     combined_df = pd.DataFrame()
 
 # Define ALL potential columns for grouping based on your provided scouted roles
 ALL_GROUPING_COLS = [
