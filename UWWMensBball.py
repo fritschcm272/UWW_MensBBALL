@@ -26,7 +26,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 script_dir = os.path.dirname(__file__)
 
 # Construct the relative path to the CSV file
-csv_files = os.path.join(script_dir, 'Game_Data', '*.csv)
+csv_files = os.path.join(script_dir, 'Game_Data', '*.csv')
 
 # Initialize an empty list to store the DataFrames
 list_of_dfs = []
