@@ -129,9 +129,12 @@ def calculate_lineup_ratings(combined_df, team_name, opponent_name, group_dict, 
         'LINEUP_LIST': 'LINEUP', points_for_col: 'Points For', points_against_col: 'Points Against'
     })
     final_results['Plus/Minus'] = final_results['Points For'] - final_results['Points Against']
+
+    # Rename the aggregated 'GAME_ID' to 'Games'
+    aggregated_data = aggregated_data.rename(columns={'GAME_ID': 'Games'})
     
     final_results = final_results[group_dict+['AGGREGATED_TIME_MM:SS', 'POSSESSIONS', 'Points For', 'Points Against', 
-                                   'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating', 
+                                   'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating', 'Games',
                                    'Points For Per 40 Mins', 'Points Against Per 40 Mins']]
 
     return final_results
