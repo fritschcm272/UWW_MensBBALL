@@ -11,7 +11,44 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 
 
+# --- Configuration ---
+# Assuming your CSV folder is named 'csv_data' and is in the same directory as the script.
+folder_name = 'Game_Data' 
+# Get the current working directory (where the script is located)
+current_dir = os.getcwd() 
+# Create the full path to the folder
+path = os.path.join(current_dir, folder_name)
 
+# Use glob to find all files ending with .csv in the specified path
+all_files = glob.glob(os.path.join(path, "*.csv"))
+
+# --- Loading and Concatenating Data ---
+
+# Create a list to hold the individual DataFrames
+df_list = []
+
+print(f"--- Loading CSVs from: {path} ---")
+
+# Loop through the list of file paths
+for filename in all_files:
+    # Read the file into a pandas DataFrame
+    try:
+        df = pd.read_csv(filename, index_col=None, header=0)
+        df_list.append(df)
+        print(f"Loaded: {os.path.basename(filename)}")
+    except Exception as e:
+        print(f"Error loading {os.path.basename(filename)}: {e}")
+
+# Concatenate all DataFrames in the list into one single DataFrame
+if df_list:
+    combined_df = pd.concat(df_list, axis=0, ignore_index=True)
+    
+    print("\n--- Combined DataFrame Info ---")
+    print(combined_df.info())
+    print("\n--- First 5 rows of Combined Data ---")
+    print(combined_df.head())
+else:
+    print("\nNo CSV files found or loaded.")
 
 
 # --- 1. Data Loading and Aggregation ---
@@ -22,14 +59,11 @@ from matplotlib.backends.backend_pdf import PdfPages
 # # Use glob to find all files ending with .csv in the specified directory
 # csv_files = glob.glob(os.path.join(csv_directory_path, "*.csv"))
 
-# Get the directory of the current script
-script_dir = os.path.dirname(__file__)
-st.caption(script_dir)
 
 
-# Construct the relative path to the CSV file
-csv_files = os.path.join(script_dir, 'Game_Data', '*.csv')
-print(csv_files)
+# # Construct the relative path to the CSV file
+# csv_files = os.path.join(script_dir, 'Game_Data', '*.csv')
+# print(csv_files)
 
 # Initialize an empty list to store the DataFrames
 list_of_dfs = []
