@@ -8,13 +8,25 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
+
+
+
+
+
+
 # --- 1. Data Loading and Aggregation ---
 
-# Specify the path to the directory containing your CSV files
-csv_directory_path = 'Game_Data\\'
+# # Specify the path to the directory containing your CSV files
+# csv_directory_path = 'Game_Data\\'
 
-# Use glob to find all files ending with .csv in the specified directory
-csv_files = glob.glob(os.path.join(csv_directory_path, "*.csv"))
+# # Use glob to find all files ending with .csv in the specified directory
+# csv_files = glob.glob(os.path.join(csv_directory_path, "*.csv"))
+
+# Get the directory of the current script
+script_dir = os.path.dirname(__file__)
+
+# Construct the relative path to the CSV file
+csv_files = os.path.join(script_dir, 'Game_Data', '*.csv)
 
 # Initialize an empty list to store the DataFrames
 list_of_dfs = []
