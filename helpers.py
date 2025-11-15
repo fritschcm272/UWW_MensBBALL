@@ -5,7 +5,8 @@ agg_dict = {
         'DURATION_SECONDS': 'sum',
         'AWAY_POINTS': 'sum',
         'HOME_POINTS': 'sum',
-        'IS_END_OF_POSSESSION': 'sum'
+        'IS_END_OF_POSSESSION': 'sum',
+        'GAME_ID': 'nunique' 
     }
 
 
