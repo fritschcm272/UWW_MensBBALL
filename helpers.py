@@ -1,5 +1,10 @@
 import numpy as np
 import pandas as pd
+import glob
+import os
+import helpers
+import re
+from typing import Dict, List
 
 agg_dict = {
         'DURATION_SECONDS': 'sum',
@@ -10,11 +15,78 @@ agg_dict = {
     }
 
 
+
 AWAY_TEAM_NAME = "Wis.-Whitewater"
 HOME_TEAM_NAME = "Ripon"
 
 # Define the columns to keep for the focused analysis 
 kept_cols = ['LINEUP', 'POSSESSIONS', 'Points For', 'Points Against', 'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating']
+
+def load_data_from_game_data():
+    # --- 1. Data Loading and Aggregation ---
+
+
+    # Assuming your CSV folder is named 'csv_data' and is in the same directory as the script.
+    folder_name = 'Game_Data' 
+    excluded_file_name = "Scouting.csv"
+    
+    # Get the current working directory (where the script is located)
+    current_dir = os.getcwd() 
+    # Create the full path to the folder
+    path = os.path.join(current_dir, folder_name)
+    
+    # Use glob to find all files ending with .csv in the specified path
+    all_files = glob.glob(os.path.join(path, "*.csv"))
+    
+    # 2. Filter the list to exclude the specified file name
+    all_files = [
+        file 
+        for file in all_files 
+        if os.path.basename(file) != excluded_file_name
+    ]
+    
+    # --- Loading and Concatenating Data ---
+    
+    # Create a list to hold the individual DataFrames
+    df_list = []
+    
+    print(f"--- Loading CSVs from: {path} ---")
+    
+    # Loop through the list of file paths
+    for filename in all_files:
+        # Read the file into a pandas DataFrame
+        try:
+            df = pd.read_csv(filename, index_col=None, header=0)
+            df_list.append(df)
+            print(f"Loaded: {os.path.basename(filename)}")
+        except Exception as e:
+            print(f"Error loading {os.path.basename(filename)}: {e}")
+    
+    # Concatenate all DataFrames in the list into one single DataFrame
+    if df_list:
+        combined_df = pd.concat(df_list, axis=0, ignore_index=True)
+        combined_df = combined_df[~combined_df['Game'].isnull()]
+    
+        # 📌 NEW: Create a unique game identifier if GAME_ID doesn't exist.
+        # Assuming 'AWAY_TEAM_NAME' and 'HOME_TEAM_NAME' columns might define the game.
+        # If your CSVs have a proper 'GAME_ID' column, use that instead.
+        if 'GAME_ID' not in combined_df.columns:
+            # Create a simple unique identifier based on the file name/path
+            # NOTE: If your raw data already has a unique 'Game ID', use that column!
+            combined_df['GAME_ID'] = combined_df['AwayTeam'] + ' vs ' + combined_df['HomeTeam']
+        
+        # 📌 NEW: Get all unique game IDs for the filter
+        ALL_GAME_IDS = sorted(combined_df['GAME_ID'].unique().tolist())
+        
+        print("\n--- Combined DataFrame Info ---")
+        print(combined_df.info())
+        print("\n--- First 5 rows of Combined Data ---")
+        print(combined_df.head())
+    else:
+        print("\nNo CSV files found or loaded.")
+
+    return combined_df
+
 
 
 def time_to_seconds(time_str):
@@ -131,7 +203,7 @@ def calculate_lineup_ratings(combined_df, team_name, opponent_name, group_dict, 
     final_results['Plus/Minus'] = final_results['Points For'] - final_results['Points Against']
 
     # Rename the aggregated 'GAME_ID' to 'Games'
-    aggregated_data = aggregated_data.rename(columns={'GAME_ID': 'Games'})
+    final_results = final_results.rename(columns={'GAME_ID': 'Games'})
     
     final_results = final_results[group_dict+['AGGREGATED_TIME_MM:SS', 'POSSESSIONS', 'Points For', 'Points Against', 
                                    'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating', 'Games',
