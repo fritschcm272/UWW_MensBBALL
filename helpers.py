@@ -16,13 +16,13 @@ agg_dict = {
 
 
 
-AWAY_TEAM_NAME = "Wis.-Whitewater"
-HOME_TEAM_NAME = "Ripon"
+# AWAY_TEAM_NAME = "Wis.-Whitewater"
+# HOME_TEAM_NAME = "Ripon"
 
 # Define the columns to keep for the focused analysis 
 kept_cols = ['LINEUP', 'POSSESSIONS', 'Points For', 'Points Against', 'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating']
 
-def load_data_from_game_data():
+def load_data_from_game_data(team_name):
     # --- 1. Data Loading and Aggregation ---
 
 
@@ -73,10 +73,10 @@ def load_data_from_game_data():
         if 'GAME_ID' not in combined_df.columns:
             # Create a simple unique identifier based on the file name/path
             # NOTE: If your raw data already has a unique 'Game ID', use that column!
-            combined_df['GAME_ID'] = combined_df['AwayTeam'] + ' vs ' + combined_df['HomeTeam']
+            combined_df['GAME_ID'] = combined_df['TEAM_NAME'] + ' vs ' + combined_df['OPPONENT_NAME'] + ' - ' + combined_df['Date']
         
         # 📌 NEW: Get all unique game IDs for the filter
-        ALL_GAME_IDS = sorted(combined_df['GAME_ID'].unique().tolist())
+        # ALL_GAME_IDS = sorted(combined_df['GAME_ID'].unique().tolist())
         
     #     print("\n--- Combined DataFrame Info ---")
     #     print(combined_df.info())
@@ -123,18 +123,18 @@ def display_formatted_lineups(df, title):
     display(styled_df)
 
 
-def calculate_lineup_ratings(combined_df, team_name, opponent_name, group_dict, agg_dict):
+def calculate_lineup_ratings(combined_df, group_dict, agg_dict):
     """
     Performs line-up aggregation and advanced rating calculations for a single team.
     (Replaces AWAY/HOME Lineup Aggregation duplication)
     """
-    team_prefix = 'AWAY' if team_name == AWAY_TEAM_NAME else 'HOME'
-    opp_prefix = 'HOME' if team_name == AWAY_TEAM_NAME else 'AWAY'
+    # team_prefix = 'AWAY' if team_name == AWAY_TEAM_NAME else 'HOME'
+    # opp_prefix = 'HOME' if team_name == AWAY_TEAM_NAME else 'AWAY'
     
-    roster_col = f'{team_prefix}_ROSTER_ON_COURT'
-    points_for_col = f'{team_prefix}_POINTS'
-    points_against_col = f'{opp_prefix}_POINTS'
-
+    roster_col = f'TEAM_ROSTER_ON_COURT'
+    points_for_col = f'TEAM_POINTS'
+    points_against_col = f'OPPONENT_POINTS'
+    
     # --- THE FIX: Standardize the lineup string BEFORE grouping ---
     # Convert the comma-separated string of players into a list, sort the list,
     # and rejoin it as a new, standardized string key (e.g., "A,B,C,D,E").
@@ -144,11 +144,11 @@ def calculate_lineup_ratings(combined_df, team_name, opponent_name, group_dict, 
         # Split, sort the player names alphabetically, and rejoin with a comma
         # This ensures 'A,B' and 'B,A' are both grouped as 'A,B'
         return ','.join(sorted(lineup_str.split(',')))
-
+    
     # Apply the standardization to the roster column
     combined_df['LINEUP'] = combined_df[roster_col].apply(standardize_lineup)
     # -----------------------------------------------------------------
-
+    
     # group_dict = ['STANDARDIZED_LINEUP']
     # 1. Aggregate Line-ups
     # Group by the new standardized column
@@ -177,8 +177,8 @@ def calculate_lineup_ratings(combined_df, team_name, opponent_name, group_dict, 
         0.0
     )
     aggregated_data['Net Rating'] = aggregated_data['Offensive Rating'] - aggregated_data['Defensive Rating']
-
-
+    
+    
     # 3. ROUNDING & NAN/INF HANDLING
     rounding_cols = ['Points For Per 40 Mins', 'Points Against Per 40 Mins',
                      'Offensive Rating', 'Defensive Rating', 'Net Rating',
@@ -193,20 +193,20 @@ def calculate_lineup_ratings(combined_df, team_name, opponent_name, group_dict, 
     float_cols = ['Points For Per 40 Mins', 'Points Against Per 40 Mins',
                   'Offensive Rating', 'Defensive Rating', 'Net Rating']
     aggregated_data[float_cols] = aggregated_data[float_cols].round(1)
-
-
+    
+    
     # 4. Final Formatting
     aggregated_data['AGGREGATED_TIME_MM:SS'] = aggregated_data['DURATION_SECONDS'].apply(seconds_to_time)
     final_results = aggregated_data.drop(columns=['DURATION_SECONDS', 'player_length', 'LINEUP']).rename(columns={
         'LINEUP_LIST': 'LINEUP', points_for_col: 'Points For', points_against_col: 'Points Against'
     })
     final_results['Plus/Minus'] = final_results['Points For'] - final_results['Points Against']
-
+    
     # Rename the aggregated 'GAME_ID' to 'Games'
     final_results = final_results.rename(columns={'GAME_ID': 'Games'})
     
     final_results = final_results[group_dict+['AGGREGATED_TIME_MM:SS', 'POSSESSIONS', 'Points For', 'Points Against', 
                                    'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating', 'Games',
                                    'Points For Per 40 Mins', 'Points Against Per 40 Mins']]
-
+    
     return final_results
