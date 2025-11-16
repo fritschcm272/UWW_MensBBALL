@@ -78,12 +78,12 @@ def load_data_from_game_data():
         # 📌 NEW: Get all unique game IDs for the filter
         ALL_GAME_IDS = sorted(combined_df['GAME_ID'].unique().tolist())
         
-        print("\n--- Combined DataFrame Info ---")
-        print(combined_df.info())
-        print("\n--- First 5 rows of Combined Data ---")
-        print(combined_df.head())
-    else:
-        print("\nNo CSV files found or loaded.")
+    #     print("\n--- Combined DataFrame Info ---")
+    #     print(combined_df.info())
+    #     print("\n--- First 5 rows of Combined Data ---")
+    #     print(combined_df.head())
+    # else:
+    #     print("\nNo CSV files found or loaded.")
 
     return combined_df
 
