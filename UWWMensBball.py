@@ -9,7 +9,7 @@ from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
 
-combined_df = helpers.load_data_from_game_data()
+combined_df = helpers.load_data_from_game_data('Wis.-Whitewater')
 
 
 # Define ALL potential columns for grouping based on your provided scouted roles
@@ -33,14 +33,14 @@ if not combined_df.empty:
 
 agg_dict = {
         'DURATION_SECONDS': 'sum',
-        'AWAY_POINTS': 'sum',
-        'HOME_POINTS': 'sum',
+        'TEAM_POINTS': 'sum',
+        'OPPONENT_POINTS': 'sum',
         'IS_END_OF_POSSESSION': 'sum',
         'GAME_ID': 'nunique'
     }
 
-AWAY_TEAM_NAME = "Wis.-Whitewater"
-HOME_TEAM_NAME = "Ripon"
+# TEAM_NAME = "Wis.-Whitewater"
+# OPPONENT_NAME = "Ripon"
 
 # Filter out 'LINEUP' if it exists here, as it is always included
 ALL_GROUPING_COLS = [col for col in ALL_GROUPING_COLS if col != 'LINEUP'] 
@@ -68,7 +68,7 @@ else:
     # 1. Calculate Results for TOP 3 and PDF (LINEUP ONLY)
     group_dict_top = ['LINEUP']
     kept_cols_top = ['LINEUP'] + RATING_COLS
-    away_final_results_top = helpers.calculate_lineup_ratings(combined_df, AWAY_TEAM_NAME, HOME_TEAM_NAME, group_dict_top, agg_dict)
+    away_final_results_top = helpers.calculate_lineup_ratings(combined_df, group_dict_top, agg_dict)
 
 
 
@@ -255,7 +255,7 @@ if not df_base_top.empty:
         kept_cols_explorer = group_dict_explorer + RATING_COLS
         # 📌 IMPORTANT: Use the filtered_combined_df here!
 
-        away_final_results_explorer = helpers.calculate_lineup_ratings(filtered_combined_df, AWAY_TEAM_NAME, HOME_TEAM_NAME, group_dict_explorer, agg_dict)
+        away_final_results_explorer = helpers.calculate_lineup_ratings(filtered_combined_df, group_dict_explorer, agg_dict)
         df = away_final_results_explorer.copy()
         
         # 1. Context Column Filters 
@@ -377,17 +377,17 @@ if not df_base_top.empty:
             st.download_button(
                 label="⬇️ Download filtered data as CSV",
                 data=csv_bytes,
-                file_name=f"{AWAY_TEAM_NAME}_lineup_analysis.csv",
+                file_name=f"lineup_analysis.csv",
                 mime="text/csv"
             )
         else:
             st.warning("No lineups match the current filter settings.")
             
-        # Download full PDF report (uses the LINEUP ONLY results)
-        pdf_bytes = generate_pdf_report(AWAY_TEAM_NAME, top_possessions_list, top_plus_minus_list, top_net_rating_list)
-        st.download_button(
-            label="📄 Download full report as PDF",
-            data=pdf_bytes,
-            file_name=f"{AWAY_TEAM_NAME}_lineup_report.pdf",
-            mime="application/pdf"
-        )
+        # # Download full PDF report (uses the LINEUP ONLY results)
+        # pdf_bytes = generate_pdf_report(TEAM_NAME, top_possessions_list, top_plus_minus_list, top_net_rating_list)
+        # st.download_button(
+        #     label="📄 Download full report as PDF",
+        #     data=pdf_bytes,
+        #     file_name=f"{TEAM_NAME}_lineup_report.pdf",
+        #     mime="application/pdf"
+        # )
