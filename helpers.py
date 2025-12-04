@@ -5,6 +5,7 @@ import os
 import helpers
 import re
 from typing import Dict, List
+import ast
 
 agg_dict = {
         'DURATION_SECONDS': 'sum',
@@ -147,6 +148,7 @@ def calculate_lineup_ratings(combined_df, group_dict, agg_dict):
     
     # Apply the standardization to the roster column
     combined_df['LINEUP'] = combined_df[roster_col].apply(standardize_lineup)
+    
     # -----------------------------------------------------------------
     
     # group_dict = ['STANDARDIZED_LINEUP']
@@ -204,9 +206,72 @@ def calculate_lineup_ratings(combined_df, group_dict, agg_dict):
     
     # Rename the aggregated 'GAME_ID' to 'Games'
     final_results = final_results.rename(columns={'GAME_ID': 'Games'})
+    # final_results['LINEUP'] = final_results['LINEUP'].replace(' Jr.', '') 
+    final_results['LINEUP'] = final_results['LINEUP'].apply(remove_jr_from_list)
+    final_results['LINEUP'] = final_results['LINEUP'].apply(parse_and_extract_names)
+    final_results['LINEUP'].apply(lambda x: x.sort())
+
     
     final_results = final_results[group_dict+['AGGREGATED_TIME_MM:SS', 'POSSESSIONS', 'Points For', 'Points Against', 
                                    'Plus/Minus', 'Offensive Rating', 'Defensive Rating', 'Net Rating', 'Games',
                                    'Points For Per 40 Mins', 'Points Against Per 40 Mins']]
     
     return final_results
+
+def parse_and_extract_names(input_value):
+    """
+    Converts a string of comma-separated names (optionally enclosed in brackets)
+    or an already-parsed Python list of names into a list of last names.
+
+    Args:
+        input_value (str or list): The value from the DataFrame cell, which can be 
+                                   a string representation of a list, an actual list,
+                                   or other data types like NaN.
+
+    Returns:
+        list: A list containing only the extracted last names, or an empty 
+              list if the input is invalid or empty.
+    """
+    # Initialize the list of full names
+    full_names_list = []
+    
+    if isinstance(input_value, list):
+        # Case 1: The input is ALREADY a Python list (This is the likely fix for "blank" output)
+        full_names_list = input_value
+        
+    elif isinstance(input_value, str):
+        # Case 2: The input is a string representation (as originally described)
+        
+        # Clean the string by removing optional list brackets and splitting by comma
+        # .strip() removes leading/trailing whitespace
+        # .strip('[]') removes surrounding brackets, if they exist
+        cleaned_string = input_value.strip().strip('[]')
+        
+        if cleaned_string:
+            # Split the string by comma and strip whitespace from each resulting name
+            full_names_list = [name.strip() for name in cleaned_string.split(',')]
+            
+            # Filter out any empty strings that might result from extra commas (e.g., "A,,B")
+            full_names_list = [name for name in full_names_list if name]
+
+    else:
+        # Case 3: The input is None, NaN, or another unprocessable type
+        return []
+
+    # 3. Extract the last name from each full name in the list
+    # The 'if ' ' in name' filter ensures we only try to split names that actually contain a space
+    last_names = [name.split()[-1] for name in full_names_list if ' ' in name]
+
+    return last_names
+
+def remove_jr_from_list(name_list):
+    # Ensure the input is a list, handling string representations if necessary
+    if isinstance(name_list, str):
+        try:
+            name_list = ast.literal_eval(name_list)
+        except (ValueError, SyntaxError):
+            # If not a list-like string, just return as is or handle error
+            return name_list
+            
+    # Use list comprehension with string replacement
+    return [name.replace(" Jr.", "") for name in name_list]
