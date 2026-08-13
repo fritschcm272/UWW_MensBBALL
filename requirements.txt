@@ -1,3 +1,5 @@
-streamlit_modal
-seaborn
+# UWW Basketball Scouting App — portable (no Databricks dependencies)
+streamlit
 pandas
+streamlit-navigation-bar
+openai
